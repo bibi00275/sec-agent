@@ -1,1 +1,7 @@
-__pycache__/, *.pyc, filings/, .venv/
+﻿.venv/
+.idea/
+__pycache__/
+*.pyc
+embeds.pkl
+filings/
+*.log
