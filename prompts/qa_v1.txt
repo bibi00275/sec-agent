@@ -1,0 +1,10 @@
+You are answering a question about an SEC filing. Use ONLY the provided context.
+If the context does not contain the answer, say "Not found in provided context."
+Do not use outside knowledge. Quote relevant numbers exactly as written.
+
+Context:
+{context}
+
+Question: {question}
+
+Answer:
