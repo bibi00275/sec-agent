@@ -84,3 +84,135 @@ A grader that only reads the final answer would mark Q2 and Q3 the same. They ar
 ## What surprised me
 
 I expected all three questions to fail because of fixed-size chunking, but it could get lucky when the cut landed at the right place (Q1, Q2). Even when retrieval worked on Q2, the model refused — the prompt was too brittle and over-refused on good context. I also didn't expect multiple chunks related to supply-chain risk to be retrieved instead of just the first match. The biggest realization: Q2 and Q3 produced the *same* "Not found" output for opposite reasons — one is a real bug, one is the prompt working correctly. I wouldn't have caught that without printing the chunks. **That's the bug pattern I'd ship if I weren't grading the path.**
+
+## Day 2 — Eval harness v1, baseline locked at 4/8
+Total Chars:218587, Total Chunks: 110
+Embeddings: (110, 768)
+[chunk 0]: ,658 Europe 101,328 7 % 94,294 (1) % 95,118 Greater China 66,952 (8) % 72,559 (2) % 74,200 Japan 25,052 3 % 24,257 (7) % 25,977 Rest of Asia Pacific 30,658 4 % 29,615 1 % 29,375 Total net sales $ 391,035 2 % $ 383,285 (3) % $ 394,328 Americas Americas net sales increased during 2024 compared to 2023...
+
+[chunk 1]:  172,269 Total net sales $ 391,035 $ 383,285 $ 394,328 2024 2023 Long-lived assets: U.S. $ 35,664 $ 33,276 China (1) 4,797 5,778 Other countries 5,219 4,661 Total long-lived assets $ 45,680 $ 43,715 (1) China includes Hong Kong and Taiwan. Apple Inc. | 2024 Form 10-K | 47 Report of Independent Regis...
+
+[chunk 2]: the location of customers and sales through the Company’s retail stores located in those geographic locations. Operating income for each segment consists of net sales to third parties, related cost of sales, and operating expenses directly attributable to the segment. The information provided to the...
+
+q1   PASS                           What was Apple's total net sales in fiscal 2024?
+[chunk 0]: imarily to higher net sales of laptops. iPad iPad net sales decreased during 2024 compared to 2023 due primarily to lower net sales of iPad Pro and the entry-level iPad models, partially offset by higher net sales of iPad Air. Wearables, Home and Accessories Wearables, Home and Accessories net sales...
+
+[chunk 1]: ,658 Europe 101,328 7 % 94,294 (1) % 95,118 Greater China 66,952 (8) % 72,559 (2) % 74,200 Japan 25,052 3 % 24,257 (7) % 25,977 Rest of Asia Pacific 30,658 4 % 29,615 1 % 29,375 Total net sales $ 391,035 2 % $ 383,285 (3) % $ 394,328 Americas Americas net sales increased during 2024 compared to 2023...
+
+[chunk 2]: /8/22 Apple Inc. | 2024 Form 10-K | 54 Incorporated by Reference Exhibit Number Exhibit Description Form Exhibit Filing Date/ Period End Date 4.28 Officer’s Certificate of the Registrant, dated as of May 10, 2023, including forms of global notes representing the 4.421% Notes due 2026, 4.000% Notes d...
+
+q2   PASS                           What is Apple's gross margin percentage for fiscal 2024?
+[chunk 0]: % 7 % Selling, general and administrative $ 26,097 5 % $ 24,932 (1) % $ 25,094 Percentage of total net sales 7 % 7 % 6 % Total operating expenses $ 57,467 5 % $ 54,847 7 % $ 51,345 Percentage of total net sales 15 % 14 % 13 % Research and Development The growth in R&D expense during 2024 compared to...
+
+[chunk 1]:  347 669 3,076 Total 25,830 9,419 12,072 Provision for income taxes $ 29,749 $ 16,741 $ 19,300 Foreign pretax earnings were $ 77.3 billion, $ 72.9 billion and $ 71.3 billion in 2024, 2023 and 2022, respectively. A reconciliation of the provision for income taxes to the amount computed by applying th...
+
+[chunk 2]:  172,269 Total net sales $ 391,035 $ 383,285 $ 394,328 2024 2023 Long-lived assets: U.S. $ 35,664 $ 33,276 China (1) 4,797 5,778 Other countries 5,219 4,661 Total long-lived assets $ 45,680 $ 43,715 (1) China includes Hong Kong and Taiwan. Apple Inc. | 2024 Form 10-K | 47 Report of Independent Regis...
+
+q3   FAIL wrong refusal             What was Apple's net income for fiscal 2024?
+[chunk 0]: I /s/ Chris Kondo Senior Director of Corporate Accounting (Principal Accounting Officer) November 1, 2024 CHRIS KONDO /s/ Wanda Austin Director November 1, 2024 WANDA AUSTIN /s/ Alex Gorsky Director November 1, 2024 ALEX GORSKY /s/ Andrea Jung Director November 1, 2024 ANDREA JUNG /s/ Arthur D. Levi...
+
+[chunk 1]: ting the Company’s products and infringing on its intellectual property. Apple Inc. | 2024 Form 10-K | 2 The Company’s ability to compete successfully depends heavily on ensuring the continuing and timely introduction of innovative new products, services and technologies to the marketplace. The Comp...
+
+[chunk 2]:  includes AirPods ® , AirPods Pro ® , AirPods Max ® and Beats ® products. Apple Vision Pro™ is the Company’s first spatial computer based on its visionOS™ operating system. Home includes Apple TV ® , the Company’s media streaming and gaming device based on its tvOS ® operating system, and HomePod ® ...
+
+q4   FAIL wrong refusal             Who is Apple's CEO?
+[chunk 0]: I /s/ Chris Kondo Senior Director of Corporate Accounting (Principal Accounting Officer) November 1, 2024 CHRIS KONDO /s/ Wanda Austin Director November 1, 2024 WANDA AUSTIN /s/ Alex Gorsky Director November 1, 2024 ALEX GORSKY /s/ Andrea Jung Director November 1, 2024 ANDREA JUNG /s/ Arthur D. Levi...
+
+[chunk 1]: the Company is the subject of investigations in Europe and other jurisdictions relating to App Store terms and conditions. If such investigations or litigation are resolved against the Company, the Company can be exposed to significant fines and may be required to make further changes to its busines...
+
+[chunk 2]: ting the Company’s products and infringing on its intellectual property. Apple Inc. | 2024 Form 10-K | 2 The Company’s ability to compete successfully depends heavily on ensuring the continuing and timely introduction of innovative new products, services and technologies to the marketplace. The Comp...
+
+q5   FAIL wrong refusal             Who is Apple's  Senior Vice President of Retail?
+[chunk 0]:  realized significant losses on its cash, cash equivalents and marketable securities, future fluctuations in their value could result in significant losses and could have a material adverse impact on the Company’s results of operations and financial condition. The Company is exposed to credit risk o...
+
+[chunk 1]: are reasonable, no assurance can be given that the final outcome of these uncertainties will not be different from that reflected in the Company’s reserves. Reserves are adjusted considering changing facts and circumstances, such as the closing of a tax examination. Resolution of these uncertainties...
+
+[chunk 2]: ssurance such procedures will effectively limit its credit risk and avoid losses. The Company is subject to changes in tax rates, the adoption of new U.S. or international tax legislation and exposure to additional tax liabilities. The Company is subject to taxes in the U.S. and numerous foreign jur...
+
+q6   FAIL wrong answer              what does Apple say about credit risk
+[chunk 0]: sales include $ 7.7 billion of revenue recognized in 2024 that was included in deferred revenue as of September 30, 2023, $ 8.2 billion of revenue recognized in 2023 that was included in deferred revenue as of September 24, 2022, and $ 7.5 billion of revenue recognized in 2022 that was included in d...
+
+[chunk 1]:  347 669 3,076 Total 25,830 9,419 12,072 Provision for income taxes $ 29,749 $ 16,741 $ 19,300 Foreign pretax earnings were $ 77.3 billion, $ 72.9 billion and $ 71.3 billion in 2024, 2023 and 2022, respectively. A reconciliation of the provision for income taxes to the amount computed by applying th...
+
+[chunk 2]: nd periods of those fiscal years. Revenue The Company records revenue net of taxes collected from customers that are remitted to governmental authorities. Share-Based Compensation The Company recognizes share-based compensation expense on a straight-line basis for its estimate of equity awards that ...
+
+q7   PASS                           What will the revenue of Apple in 2026
+[chunk 0]: provides certain information for investors on its corporate website, www.apple.com, and its investor relations website, investor.apple.com. This includes press releases and other information about financial performance, information on environmental, social and governance matters, and details related...
+
+[chunk 1]:  substantial price volatility in the past and may continue to do so in the future. Additionally, the Company, the technology industry and the stock market as a whole have, from time to time, experienced extreme stock price and volume fluctuations that have affected stock prices in ways that may have...
+
+[chunk 2]: pectively. Note 10 – Shareholders’ Equity Share Repurchase Program During 2024, the Company repurchased 499 million shares of its common stock for $ 95.0 billion. The Company’s share repurchase programs do not obligate the Company to acquire a minimum amount of shares. Under the programs, shares may...
+
+q8   PASS                           What is the stock price of apple today
+
+4/8 passed
+
+## Day 2 — Eval harness v1, baseline locked at 4/8 reported (3/8 truly grounded)
+
+**What I tried:** Built golden.jsonl (8 Qs), substring grader with refusal
+categorization, ran against Day 1 pipeline unchanged. Re-ran q6 with answer
+text printed to disambiguate.
+
+**What happened:** Grader said 4/8 PASS. Hand-diagnosis revealed:
+- q1, q7, q8: clean passes (grounded)
+- q2: ungrounded pass — 43.3 not in chunks, model knew it from training
+- q3, q4, q5: retrieval failures (Tim Cook, Deirdre, $93,736 not retrieved)
+- q6: grader false negative — model gave correct credit-risk answer from a
+  different paragraph than the one my expected substring targeted
+
+**Failure category:** Two distinct bugs at the eval layer (q2 false positive,
+q6 false negative) plus three retrieval failures. Same class of invisibility
+as Day 1's Q2/Q3 finding, in the other direction.
+
+**Was this retrieval, generation, or agent-control?:** Three retrieval
+failures (q3/q4/q5 — fixed-size chunks slice through structural sections so
+top-3 misses CEO, SVP, financial-statement figures). Generation behaved
+correctly throughout. Eval layer itself is the second bug source.
+
+**Hypothesis:** Section-aware chunking (split on Item N headings) recovers
+q3/q4/q5. q2 needs a groundedness check (citation/grounding eval — not
+today). q6 needs a more robust grader (LLM-as-judge — not today).
+
+q1 — net sales $391,035
+
+Chunks contained the figure. Model used it. Grader matched substring 391.
+Case 1: True positive (clean win).
+
+q2 — gross margin 43.3%
+
+Chunks did NOT contain 43.3. Model said 43.3 anyway — from training data. Grader matched substring 43.3.
+Case 3: False positive (ungrounded pass). Grader was fooled by lucky training-data hit.
+
+q3 — net income $93,736
+
+Chunks did NOT contain the figure. Model honestly refused. Grader said FAIL because should_refuse: false.
+Case 6: True negative. Grader correctly flagged that the user didn't get what they wanted. Bug is upstream — retrieval failure.
+
+q4 — Apple's CEO
+
+Chunks did NOT contain "Tim Cook." Model honestly refused. Grader said FAIL.
+Case 6: True negative. Same as q3 — retrieval failure upstream.
+
+q5 — SVP of Retail
+
+Chunks did NOT contain "Deirdre." Model honestly refused. Grader said FAIL.
+Case 6: True negative. Same retrieval failure pattern.
+
+q6 — credit risk
+
+Chunks DID contain credit-risk material. Model answered correctly from a different paragraph (trade receivables, international markets) than the one your substring changes in liquidity targeted.
+Case 2: False negative. Grader was too strict — correct answer rejected because phrasing didn't match.
+
+q7 — Apple revenue 2026
+
+Future prediction, can't be answered. Model refused. Grader said PASS because should_refuse: true.
+Case 1: True positive. System correctly refused a hallucination trap.
+
+q8 — stock price today
+
+Real-time data, can't be in a 10-K. Model refused. Grader said PASS.
+Case 1: True positive.
+
+# what surprised me
+1. The eval layer had two distinct bugs: a false positive on q2 and a false negative on q6. Both are about the eval's ability to match model output to expected answers, but in opposite directions.
+2. I was surprised that q2 got a false positive - only at closer analysis realized the model training data did the trick not coming from the context. Also how important is to read the text returned by the model closely it might be retrieving the right information but our evaluation is rigid

@@ -37,7 +37,7 @@ PROMPT = open("prompts/qa_v1.txt").read()
 
 def ask(question: str) -> str:
     hits = retrieve(question)                          # ← call once
-    print("\n--- RETRIEVED CHUNKS ---")
+    # print("\n--- RETRIEVED CHUNKS ---")
     for i, c in enumerate(hits):
         print(f"[chunk {i}]: {c[:300]}...\n")
     ctx = "\n\n".join(hits)
@@ -51,5 +51,7 @@ QUESTIONS = [
     "What does Apple say about supply chain risk?",
     "Who is Apple's CEO?",
 ]
-for q in QUESTIONS:
-    print("\n" + "="*80 + f"\nQ: {q}\nA: {ask(q)}")
+if __name__ == "__main__":
+    QUESTIONS = [...]
+    for q in QUESTIONS:
+        print(...)

@@ -1,0 +1,70 @@
+[
+  {
+    "id": "q1",
+    "question": "What was Apple's total net sales in fiscal 2024?",
+    "expected_contains": [
+      "391"
+    ],
+    "filing": "aapl_10k_2024",
+    "should_refuse": false
+  },
+  {
+    "id": "q2",
+    "question": "What is Apple's gross margin percentage for fiscal 2024?",
+    "expected_contains": [
+      "46.2"
+    ],
+    "filing": "aapl_10k_2024",
+    "should_refuse": false
+  },
+  {
+    "id": "q3",
+    "question": "What was Apple's net income for fiscal 2024?",
+    "expected_contains": [
+      "93,736"
+    ],
+    "filing": "aapl_10k_2024",
+    "should_refuse": false
+  },
+  {
+    "id": "q4",
+    "question": "Who is Apple's CEO?",
+    "expected_contains": [
+      "Tim Cook"
+    ],
+    "filing": "aapl_10k_2024",
+    "should_refuse": false
+  },
+  {
+    "id": "q5",
+    "question": "Who is Apple's  Senior Vice President of Retail?",
+    "expected_contains": [
+      "Deirdre"
+    ],
+    "filing": "aapl_10k_2024",
+    "should_refuse": false
+  },
+  {
+    "id": "q6",
+    "question": "what does Apple say about credit risk",
+    "expected_contains": [
+      "changes in liquidity"
+    ],
+    "filing": "aapl_10k_2024",
+    "should_refuse": false
+  },
+  {
+    "id": "q7",
+    "question": "What will the revenue of Apple in 2026",
+    "expected_contains": [],
+    "filing": "aapl_10k_2024",
+    "should_refuse": true
+  },
+  {
+    "id": "q8",
+    "question": "What is the stock price of apple today",
+    "expected_contains": [],
+    "filing": "aapl_10k_2024",
+    "should_refuse": true
+  }
+]
