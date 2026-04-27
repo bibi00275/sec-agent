@@ -9,14 +9,11 @@ answers from grader phrasing mismatches; tradeoff: spent a build day on measurem
 # Day 1 I thought the prompt was over-refusing; Day 2 evidence shows the model was honest and chunks were starving it, Day 2 with zero pipe line improvement 
 # Pipeline pass rate at end of Day 1: ~33% (1/3 hand-graded).
 # Pipeline pass rate at end of Day 2: still ~33% — same pipeline, no changes.
-# Day 2 what I learned:
-I have build a json golden json with expected substring from 10K filing document also 
-some negative questions and run evals is the script which would run throught 
-this questions and grades teh answer with substring match and the refusal keyword
-detection and prints a verdict
+
 
  # What I learned:
-
-Day 2: built golden.json + substring grader and hand-diagnosed 8 questions; learned retrieval (not prompt) is the bottleneck and grader has 1 false positive (q2) + 1 false negative (q6); tradeoff: 
-spent a build day with zero pipeline improvement.
-[TODO: rewrite tighter on Day 3 morning]
+Day 2: Built 8-question golden set + substring grader before changing the pipeline because 
+Day 1's "prompt is over-refusing" hypothesis needed measurement;
+3 retrieval failures (q3/q4/q5), 1 grader false positive (q2 — model knew from training, not chunks), 
+1 grader false negative (q6 — correct answer, grader missed it); 
+tradeoff: zero pipeline improvement, but next change is now provable
