@@ -26,3 +26,13 @@ tradeoff: section-awareness regressed one question and didn't help the others, b
 Day 4: Added BM25 retrieval on top of section-aware chunking because Day 3 evidence
 said section-awareness alone wasn't enough to surface the answer; pass rate 3/8 → 5/8 , 
 Retrieval is non deterministic across runs (stock price future question and Timothy D.Cook question) cannot be trusted
+
+Day 5: extended chunker to recognize SIGNATURES/EXHIBIT INDEX headings and 
+added deterministic tie-breaking in hybrid retrieval, 
+which exposed that q4 fails because fixed-size sub-chunking slices signature lines in half; 
+tradeoff: q4 still fails, but the root cause is now diagnosed
+Day 5: enforced deterministic tie-breaking and extended chunker to detect 
+SIGNATURES/POA sections, but eval pass rate stayed at 5/8 because retrieval 
+still scores generic "key personnel" prose above the signature block for short queries; 
+tradeoff: improved chunk quality without moving the eval, 
+exposing scoring as the next bottleneck.

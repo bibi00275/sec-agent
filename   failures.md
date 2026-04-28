@@ -287,3 +287,92 @@ q5, PASS, Yes, Clean Result - BM25 helped surface the relevant chunk
 q6,Pass, Yes, Clean Result - The model found the relevant chunk and BM25 helped with findidng the relevant word credit risk.
 q7, FAIL , No, Retrieval-induced hallucination - The model should have refused but instead it invented a number. This is likely because the section-aware chunking and BM25 retrieval surfaced chunks about Apple's financial performance, which may have led the model to generate a specific revenue figure for 2026 instead of recognizing it as a future prediction question that should be refused.
 q8, FAIL, Yes, Retrieval-induced hallucination - The model should have refused but instead it invented a number. Similar to q7, the retrieval improvements may have surfaced chunks about Apple's stock performance, which could have triggered the model to generate a specific stock price for "today" instead of refusing due to lack of real-time data.
+
+## Day 5 — Retrieval determinism + chunking diagnosis
+**What I tried:**
+1. Diagnosed q4 non-determinism: ran hybrid_retrieve 3x, inspected chunk IDs and scores.
+2. Added deterministic tiebreak in sort: `key=lambda i: (-score, i)`.
+3. Widened return type from `list[str]` to `list[(id, score, text)]` for observability.
+4. Discovered Tim Cook chunk wasn't in top-5 at all — non-determinism was a distraction.
+5. Inspected chunks near document tail. Found SIGNATURES section was being swallowed
+   into "Item 16. Form 10-K Summary None." because ITEM_RE only matched "Item N." headings.
+6. Extended ITEM_RE to also match SIGNATURES, EXHIBIT INDEX, POWER OF ATTORNEY.
+7. Re-embedded with new chunk file (`chunk_vecs_v3_signatures.pkl`).
+8. Re-ran retrieval — Tim Cook still not in top-5.
+9. Grepped chunks for "Tim Cook" + "Chief Executive". Only chunk 138 (Power of Attorney)
+   has both, and it lists him as attorney-in-fact, not CEO.
+
+**What happened:** Retrieval is deterministic now (verified: 3 runs, identical scores
+to 6 decimals). q4 still fails because the literal "Timothy D. Cook, Chief Executive
+Officer" signature line was sliced in half by 2000-char fixed sub-chunking. His name
+went into chunk 135, his title went into chunk 136. No chunk pairs them.
+
+**Failure category:** retrieval — sub-category: chunking (granularity, hard cuts on
+character count instead of semantic boundaries).
+
+**Was this retrieval, generation, or agent-control failure?:** Retrieval. Specifically,
+a chunking failure that masquerades as retrieval failure. Three layers deep:
+(1) non-determinism (real, fixed), (2) noisy chunks (real, partially fixed),
+(3) hard character cuts severing signature blocks (real, NOT fixed today).
+
+**Hypothesis:** Sub-chunking on raw `len(sec) // max_chars` boundaries is destroying
+signature blocks and likely other dense-signal regions. Need to break on whitespace
+or sentence boundaries before character count. Day 6 work.
+
+Question ID,Verdict,Chunks Have Answer?,Diagnosis
+q1,PASS,Yes,Clean result.
+q2,Pass,Yes,Clean result
+q3,Pass, Yes, Clean result
+| q4 | FAIL | retrieval | answer not in retrieved chunks |
+| q5 | FAIL | retrieval | answer not in retrieved chunks (and possibly not in corpus) |
+q6, Pass, yes, Clean result
+q7 ,Pass No, Clean refusal
+q8, Pass, No, Clean refusal
+
+**What I tried (corrected):** [keep your original list]
+
+**What happened (corrected):** Chunker fix did not move the pass rate (5/8 → 5/8).
+SIGNATURES is now its own section (verified: chunk 138 contains
+"Timothy D. Cook Chief Executive Officer" plainly). But for q4, retrieval
+still pulls chunks 46/133/65 — generic "key personnel" prose, exhibit list,
+and Item 1B "None." For q5, retrieval pulls signatures (137/138/134) but the
+answer (Deirdre O'Brien) isn't in any of them. q7/q8 still pass as clean refusals.
+
+**Failure category:** retrieval (scoring) — chunking is no longer the bottleneck.
+
+**Was this retrieval, generation, or agent-control failure?:** retrieval, but a
+*scoring* failure rather than a *granularity* failure. The right chunks exist;
+the scorer doesn't rank them high enough for short queries with high-frequency
+terms.
+
+**Hypothesis for q4:** "CEO" doesn't lexically match "Chief Executive Officer."
+BM25 has no alignment between query tokens and signature-block tokens. Need
+either query expansion or different lexical weights for short queries.
+
+**Hypothesis for q5:** Need to first verify Deirdre O'Brien exists in the corpus
+at all (grep). If not, q5 is unanswerable from this filing and the golden set
+expectation is wrong. If yes, same scoring issue as q4.
+
+ # (what surprise me:)
+I came in thinking the bug was non-determinism. The actual bug was retrieval 
+scoring on short queries. The way I found out was that fixing chunking — a real fix — 
+didn't move the eval pass rate, which forced me to look at why.
+
+ # (Now the honest Day 5 closeout:)
+Real pass rate: 5/8. Same as before today's chunker change.
+The chunking fix did not move the eval needle. 
+It made the chunks better in principle (SIGNATURES is now its own section, shorter) 
+but q4 still fails because retrieval doesn't surface those chunks for "Who is Apple's CEO?"
+Why it didn't help q4: "Apple's CEO" is a 3-token query. 
+BM25 scores it across hundreds of chunks that mention "Apple" or "CEO" generically 
+(e.g. chunk 46 talks about "key personnel including its Chief Executive Officer" — that's 
+why it scored highest). The signatures chunk, even though it's now smaller and cleaner, doesn't 
+contain the literal string "Apple's CEO" or even "CEO" — it says "Chief Executive Officer." 
+So BM25 has nothing to latch onto.
+Real lesson of Day 5: fixing chunking improved chunk quality but didn't move the eval,
+because retrieval scoring is the bottleneck for short queries with high-frequency terms. 
+That's a sharper lesson than what you came in with this morning, and it points clearly 
+at Day 6: query expansion ("CEO" → "Chief Executive Officer") 
+and/or rerank to push specific signature blocks above generic discussion of "key personnel."
+Retrieval doesn’t just need the answer to exist — it needs the answer to exist in a clean,
+focused chunk.

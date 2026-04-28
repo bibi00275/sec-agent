@@ -26,7 +26,10 @@ text = re.sub(r'\s+', ' ', soup)
 
 
 # Match Item headings: "Item 1.", "Item 1A.", "Item 7A." etc.
-ITEM_RE = re.compile(r'(Item\s+\d+[A-Z]?\.\s)', re.IGNORECASE)
+ITEM_RE = re.compile(
+    r'(Item\s+\d+[A-Z]?\.\s|SIGNATURES\s|EXHIBIT\s+INDEX\s|POWER\s+OF\s+ATTORNEY\s)',
+    re.IGNORECASE
+)
 
 def section_chunk(text: str, max_chars: int = 2000) -> list[str]:
     parts = ITEM_RE.split(text)                        # ← splits on the heading, keeps the heading as a separate token
@@ -97,9 +100,14 @@ def cosine(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-10))
 
 
-def hybrid_retrieve(query: str, k: int = 3, alpha: float = 0.5) -> list[str]:
+# Why this looks like this: we widen the return type to (chunk_id, score, text)
+# tuples so we can actually diagnose. Returning bare strings was a Day 1 shortcut
+# that's now blocking observability. We also break ties on chunk_id so argsort's
+# behavior on equal scores stops mattering.
+
+def hybrid_retrieve(query: str, k: int = 3, alpha: float = 0.5):
     q_emb = embed(query)
-    dense_scores = np.array([cosine(q_emb, e) for e in chunk_vecs])   # ← chunk_vecs, not chunk_embeddings
+    dense_scores = np.array([cosine(q_emb, e) for e in chunk_vecs])
     lex_scores = bm25.get_scores(simple_tokenize(query))
 
     def norm(x):
@@ -107,19 +115,24 @@ def hybrid_retrieve(query: str, k: int = 3, alpha: float = 0.5) -> list[str]:
         return (x - x.min()) / (x.max() - x.min())
 
     combined = alpha * norm(dense_scores) + (1 - alpha) * norm(lex_scores)
-    top_k_idx = np.argsort(combined)[::-1][:k]
-    return [chunks[i] for i in top_k_idx]              # ← return text, matches old retrieve() contract
-# --- 5. Answer with the LLM, prompt loaded from file ---
+
+    # Sort by (-score, chunk_id) so ties break deterministically on chunk_id
+    order = sorted(range(len(combined)),
+                   key=lambda i: (-combined[i], i))         # ← deterministic tiebreak: index ASC on score ties
+    top = order[:k]
+    return [(i, float(combined[i]), chunks[i]) for i in top]   # ← return shape now exposes id + score
+
 PROMPT = open("prompts/qa_v1.txt").read()
 
 def ask(question: str) -> str:
-    hits = hybrid_retrieve(question)                          # ← call once
+    hits = hybrid_retrieve(question)
     print("\n--- RETRIEVED CHUNKS ---")
-    for i, c in enumerate(hits):
-        # Remove [:300] to see everything
-        print(f"[chunk {i}]: {c}\n")
-        print("-" * 50) # Adds a separator line for readability
-    ctx = "\n\n".join(hits)
+    for rank, (cid, score, text) in enumerate(hits):
+        print(f"[chunk {rank}] id={cid} score={score:.4f}")
+        print(text)
+        print("-" * 50)
+    ctx = "\n\n".join(text for _, _, text in hits)
+
     prompt = PROMPT.format(context=ctx, question=question)
     r = ollama.chat(model="llama3.1:8b-instruct-q4_K_M",
                     messages=[{"role": "user", "content": prompt}])
