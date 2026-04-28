@@ -216,8 +216,10 @@ Case 1: True positive.
 # what surprised me
 1. The eval layer had two distinct bugs: a false positive on q2 and a false negative on q6. Both are about the eval's ability to match model output to expected answers, but in opposite directions.
 2. I was surprised that q2 got a false positive - only at closer analysis realized the model training data did the trick not coming from the context. Also how important is to read the text returned by the model closely it might be retrieving the right information but our evaluation is rigid
-3. q8 hallucinated a stock price instead of refusing, but that was a grader bug — the model refused correctly, but the grader expected a refusal and marked it PASS without checking the content. 
-This shows how eval bugs can mask real model behavior. And also sub chunking looses context in large sections.
+3.  Model said: "$430 (as stated in the provided context under 'Company Stock Performance')"
+    Grader said: FAIL (should refuse but didn't)
+    The grader was correct. The model hallucinated $430. The grader caught it.
+
 ## Day 3 — Section-aware chunking, baseline 3/8 (no real movement, distribution shifted)
 
 **What I tried:** Replaced fixed-size 2000-char chunking with regex-based
@@ -270,3 +272,18 @@ loosing the overall context as the size of some of the sections were pretty larg
 I didn't realize that improving retrieval could break refusal — 
 yesterday q8 refused correctly, today it hallucinated $430 because section-aware 
 chunking pulled stock-performance content into the top-3."
+
+# what surprised me day 4
+I was surprised by how retrieval q4 retrieved the correct context in one run and failed in the second run,
+The first run correctly retrieved the chunk with Timothy D Cook names but on second run the chunks didnt have it.
+Failure Analysis Day 4
+Day 4 Picture
+Question ID,Verdict,Chunks Have Answer?,Diagnosis
+q1,PASS,Yes,Clean result.
+q2, PASS, Yes , Clean Result -
+q3, Pass, Yes, Clean Result - section aware chunking along with BM25 identified the specific number
+q4, FAIL, No (this run), Retrieval non-deterministic — Run 1 surfaced the signatures chunk with "Timothy D. Cook", Run 2 surfaced unrelated chunks. Same code, same query. Root cause unknown, blocks eval reproducibility.
+q5, PASS, Yes, Clean Result - BM25 helped surface the relevant chunk
+q6,Pass, Yes, Clean Result - The model found the relevant chunk and BM25 helped with findidng the relevant word credit risk.
+q7, FAIL , No, Retrieval-induced hallucination - The model should have refused but instead it invented a number. This is likely because the section-aware chunking and BM25 retrieval surfaced chunks about Apple's financial performance, which may have led the model to generate a specific revenue figure for 2026 instead of recognizing it as a future prediction question that should be refused.
+q8, FAIL, Yes, Retrieval-induced hallucination - The model should have refused but instead it invented a number. Similar to q7, the retrieval improvements may have surfaced chunks about Apple's stock performance, which could have triggered the model to generate a specific stock price for "today" instead of refusing due to lack of real-time data.

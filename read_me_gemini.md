@@ -19,3 +19,16 @@ q6,FAIL,Yes,"Generation failure — credit-risk content present, but model refus
 q7,PASS,N/A,Clean (correct refusal).
 q8,FAIL,Yes,Retrieval-induced hallucination — stock performance chunks led model to invent $430.
 
+Day 4 Picture
+Question ID,Verdict,Chunks Have Answer?,Diagnosis
+q1,PASS,Yes,Clean result.
+q2, PASS, Yes , Clean Result - 
+q3, Pass, Yes, Clean Result - section aware chunking along with BM25 identified the specific number
+q4, FAIL, No (this run), Retrieval non-deterministic — Run 1 surfaced the signatures chunk with "Timothy D. Cook", Run 2 surfaced unrelated chunks. Same code, same query. Root cause unknown, blocks eval reproducibility.
+q5, PASS, Yes, Clean Result - BM25 helped surface the relevant chunk
+q6,Pass, Yes, Clean Result - The model found the relevant chunk and BM25 helped with findidng the relevant word credit risk.
+q7, PASS, No, Clean refusal — model said "Not found in provided context" when asked about future revenue. Real pass.
+q8, PASS, Yes (bait chunk present), Clean refusal this run. Bait chunk ($430 cumulative return) 
+in context, 
+model refused. Day 3 hallucinated on similar context — unclear 
+whether hybrid retrieval helped or this is sampling variance. Need eval reproducibility to know.

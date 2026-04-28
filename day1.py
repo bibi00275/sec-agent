@@ -3,6 +3,9 @@ import pickle
 import re,requests, numpy as np,ollama
 from bs4 import BeautifulSoup
 import re
+from rank_bm25 import BM25Okapi
+import numpy as np
+
 UA ={"User-Agent": "YourName your@email.com"}
 FILINGS_URL = "https://www.sec.gov/Archives/edgar/data/320193/000032019324000123/aapl-20240928.htm"
 #1 Featch & Strip the HTML
@@ -47,6 +50,7 @@ def section_chunk(text: str, max_chars: int = 2000) -> list[str]:
 
 
 
+
 # --- 3. Embed every chunk. This will take a few minutes on 16GB. Watch it. ---
 def embed(s:str) -> np.ndarray:
     r = ollama.embed(model="nomic-embed-text", input=s)
@@ -73,17 +77,43 @@ else:
 print(f"Total chunks loaded: {len(chunks)}")           # ← so you can see "110 → ~25" or whatever
 
 # --- 4. Retrieval: cosine similarity, top-3 ---
-def retrieve(question: str, k: int = 3) -> list[str]:
-    q = embed(question)
-    sims = chunk_vecs @ q / (np.linalg.norm(chunk_vecs, axis=1) * np.linalg.norm(q) + 1e-9)
-    top = np.argsort(-sims)[:k]
-    return [chunks[i] for i in top]
+# def retrieve(question: str, k: int = 3) -> list[str]:
+#     q = embed(question)
+#     sims = chunk_vecs @ q / (np.linalg.norm(chunk_vecs, axis=1) * np.linalg.norm(q) + 1e-9)
+#     top = np.argsort(-sims)[:k]
+#     return [chunks[i] for i in top]
 
+
+def simple_tokenize(text: str) -> list[str]:
+    # Lowercase + split on non-alphanumeric. Crude on purpose.
+    # Don't reach for spaCy/NLTK today — that's tomorrow's distraction.
+    return re.findall(r"[a-z0-9$.]+", text.lower())   # ← keep "$" and "." so "$93,736" and "93.7" survive tokenization
+
+# chunks: list[str] you already have from Day 3's section-aware chunker
+tokenized_chunks = [simple_tokenize(c) for c in chunks]
+bm25 = BM25Okapi(tokenized_chunks)
+
+def cosine(a: np.ndarray, b: np.ndarray) -> float:
+    return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-10))
+
+
+def hybrid_retrieve(query: str, k: int = 3, alpha: float = 0.5) -> list[str]:
+    q_emb = embed(query)
+    dense_scores = np.array([cosine(q_emb, e) for e in chunk_vecs])   # ← chunk_vecs, not chunk_embeddings
+    lex_scores = bm25.get_scores(simple_tokenize(query))
+
+    def norm(x):
+        if x.max() == x.min(): return np.zeros_like(x)
+        return (x - x.min()) / (x.max() - x.min())
+
+    combined = alpha * norm(dense_scores) + (1 - alpha) * norm(lex_scores)
+    top_k_idx = np.argsort(combined)[::-1][:k]
+    return [chunks[i] for i in top_k_idx]              # ← return text, matches old retrieve() contract
 # --- 5. Answer with the LLM, prompt loaded from file ---
 PROMPT = open("prompts/qa_v1.txt").read()
 
 def ask(question: str) -> str:
-    hits = retrieve(question)                          # ← call once
+    hits = hybrid_retrieve(question)                          # ← call once
     print("\n--- RETRIEVED CHUNKS ---")
     for i, c in enumerate(hits):
         # Remove [:300] to see everything

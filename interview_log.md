@@ -22,3 +22,7 @@ Day 3: Switched fixed chunking to  section-aware chunking because Day 2 evidence
 the bottleneck; pass rate 4/8 → 3/8, distribution shifted — q2 became a real grounded pass,
 q8 regressed from refusal to inventing "$430", q3/q4/q5 still starved; 
 tradeoff: section-awareness regressed one question and didn't help the others, but now I know section-awareness isn't the right retrieval improvement.
+
+Day 4: Added BM25 retrieval on top of section-aware chunking because Day 3 evidence
+said section-awareness alone wasn't enough to surface the answer; pass rate 3/8 → 7/8 , 
+Retrieval is non deterministic across runs (stock price future question and Timothy D.Cook question) cannot be trusted

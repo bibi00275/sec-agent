@@ -29,12 +29,11 @@ with open("evals/v1/golden.json") as f:
 
 results = []
 for item in golden:
-    if item["id"] not in ("q3", "q4", "q5", "q6", "q8"):
-        continue
     answer = ask(item["question"])
     verdict = grade(answer, item["expected_contains"], item["should_refuse"])
-    print(f"FULL: {answer}")
+    results.append((item["id"], verdict, item["question"]))
     print(f"{item['id']:4} {verdict:30} {item['question'][:60]}")
+    print(f"ANSWER: {answer}\n")   # ← add this
 
 
 passes = sum(1 for _, v, _ in results if v == "PASS")
