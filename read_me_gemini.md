@@ -7,3 +7,15 @@ q5,Who is Apple's Senior Vice President of Retail?,Deirdre (O'Brien),❌ FAIL,"T
 q6,What does Apple say about credit risk?,changes in liquidity,❌ FAIL,"False Negative: Rigid Grader. The AI actually found the right info, but because it didn't use your exact phrasing, the grader rejected a correct answer."
 q7,What will the revenue of Apple in 2026?,(Refuse),✅ PASS,"True Positive: The prompt worked. It recognized this was a ""future hallucination"" trap and correctly refused to guess."
 q8,What is the stock price of Apple today?,(Refuse),✅ PASS,"True Positive: Correct refusal. The AI knew its context (the 10-K) didn't have live internet data for ""today."""
+
+Day 3 Picture
+Question ID,Verdict,Chunks Have Answer?,Diagnosis
+q1,PASS,Yes,Clean result.
+q2,PASS,Yes,Clean result (corrected from previous grader bug).
+q3,FAIL,No,Retrieval failure — net income not surfaced from Item 8.
+q4,FAIL,No,Retrieval failure — executive officers not bounded by Item N. regex.
+q5,FAIL,No,Retrieval failure — same as q4.
+q6,FAIL,Yes,"Generation failure — credit-risk content present, but model refused."
+q7,PASS,N/A,Clean (correct refusal).
+q8,FAIL,Yes,Retrieval-induced hallucination — stock performance chunks led model to invent $430.
+

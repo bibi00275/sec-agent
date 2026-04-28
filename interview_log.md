@@ -3,7 +3,7 @@ Day 2: locked baseline at grader-reported 4/8 with hand-diagnosis revealing 1 un
 answers from grader phrasing mismatches; tradeoff: spent a build day on measurement and now know fixed-size chunking and outcome-only grading are both bottlenecks.
  #  Built a golden dataset of 8 questions and a substring grader that categorizes failures into wrong-refusal vs wrong-answer,
  # 3 retrieval failures (q3, q4, q5) — chunks didn't have the answer
- # 1 ungrounded pass (q2) — model knew from training, cunks didn't have it
+ # 1 ungrounded pass (q2) — model knew from training, chunks didn't have it
  # 1 grader false negative (q6) — model right, grader wrong  
  # The most dominant failure mode is retrieval because 3 questions failed due to chunking,
 # Day 1 I thought the prompt was over-refusing; Day 2 evidence shows the model was honest and chunks were starving it, Day 2 with zero pipe line improvement 
@@ -17,3 +17,8 @@ Day 1's "prompt is over-refusing" hypothesis needed measurement;
 3 retrieval failures (q3/q4/q5), 1 grader false positive (q2 — model knew from training, not chunks), 
 1 grader false negative (q6 — correct answer, grader missed it); 
 tradeoff: zero pipeline improvement, but next change is now provable
+
+Day 3: Switched fixed chunking to  section-aware chunking because Day 2 evidence said retrieval was 
+the bottleneck; pass rate 4/8 → 3/8, distribution shifted — q2 became a real grounded pass,
+q8 regressed from refusal to inventing "$430", q3/q4/q5 still starved; 
+tradeoff: section-awareness regressed one question and didn't help the others, but now I know section-awareness isn't the right retrieval improvement.

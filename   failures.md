@@ -216,3 +216,57 @@ Case 1: True positive.
 # what surprised me
 1. The eval layer had two distinct bugs: a false positive on q2 and a false negative on q6. Both are about the eval's ability to match model output to expected answers, but in opposite directions.
 2. I was surprised that q2 got a false positive - only at closer analysis realized the model training data did the trick not coming from the context. Also how important is to read the text returned by the model closely it might be retrieving the right information but our evaluation is rigid
+3. q8 hallucinated a stock price instead of refusing, but that was a grader bug — the model refused correctly, but the grader expected a refusal and marked it PASS without checking the content. 
+This shows how eval bugs can mask real model behavior. And also sub chunking looses context in large sections.
+## Day 3 — Section-aware chunking, baseline 3/8 (no real movement, distribution shifted)
+
+**What I tried:** Replaced fixed-size 2000-char chunking with regex-based
+section splitting on "Item N" / "Item NA" headings. Sub-chunked sections
+>2000 chars. No other pipeline changes.
+
+**What happened:** Pass rate moved from 4/8 to 3/8 (real grounded count
+roughly unchanged — Day 2's q2 PASS was a grader bug; Day 3's q2 PASS is
+real; net effect: zero). Per-question diagnosis with chunk inspection:
+- q1, q2: clean PASS (q2 finally grounded today)
+- q3 (net income): chunks did NOT contain $93,736 — Item 8 too large,
+  buried mid-section, no structural signal in sub-chunk
+- q4 (Tim Cook): chunks did NOT contain his name — exec officers section
+  isn't bounded by "Item N." heading, regex misses it
+- q5 (Deirdre): same as q4
+- q6 (credit risk): chunks DID contain credit-risk content but model
+  refused — generation failure, not retrieval. Regression from Day 2.
+- q7: clean PASS (refusal)
+- q8 (stock price today): chunks DID contain stock-performance content;
+  model invented "$430" — retrieval-induced hallucination. Refused
+  yesterday, hallucinated today.
+
+**Failure category:** Three retrieval starves (q3/q4/q5) plus one
+generation-refusal-on-good-context (q6) plus one retrieval-induced-
+hallucination (q8). New failure mode (q8) didn't exist on Day 2.
+
+**Was this retrieval, generation, or agent-control?:** Mixed. q3/q4/q5
+retrieval, q6 generation, q8 retrieval+generation interaction. Section-
+aware chunking helped q2 (right column of multi-year table now
+retrievable) and hurt q8 (stock-performance content now retrievable
+where it wasn't before, model can't tell adjacent from relevant).
+
+**Hypothesis for Day 4:**
+1. Finer-grained chunking with sub-section headings (e.g., "Total net
+   sales", "Net income") to fix q3.
+2. Add non-Item structural matchers (e.g., "Information about our
+   Executive Officers", signature blocks) to fix q4/q5.
+3. q8's hallucination needs a stronger "refuse if context doesn't directly
+   answer" prompt, OR groundedness check at generation time.
+4. Three days of grader bugs (Day 2 ungrounded pass, Day 2 false negative,
+   Day 2 table-leakage PASS) say: substring grader is structurally weak.
+   LLM-as-judge or embedding-similarity grader is a Week 2 problem but
+   the cost is now visible.
+
+# what surprised me 
+I was surprised about the q8 - I didnt release the model would hallucinate 
+, also section chunking i thought would be better than fixed chunking 
+and i thought will increase the psas rate but no i think sub checking was 
+loosing the overall context as the size of some of the sections were pretty large
+I didn't realize that improving retrieval could break refusal — 
+yesterday q8 refused correctly, today it hallucinated $430 because section-aware 
+chunking pulled stock-performance content into the top-3."
