@@ -323,8 +323,8 @@ Question ID,Verdict,Chunks Have Answer?,Diagnosis
 q1,PASS,Yes,Clean result.
 q2,Pass,Yes,Clean result
 q3,Pass, Yes, Clean result
-| q4 | FAIL | retrieval | answer not in retrieved chunks |
-| q5 | FAIL | retrieval | answer not in retrieved chunks (and possibly not in corpus) |
+ q4 , FAIL , retrieval , answer not in retrieved chunks 
+ q5 ,FAIL , Yes — chunk 121 has it densely , retrieval scoring (same pattern as q4) 
 q6, Pass, yes, Clean result
 q7 ,Pass No, Clean refusal
 q8, Pass, No, Clean refusal
@@ -376,3 +376,11 @@ at Day 6: query expansion ("CEO" → "Chief Executive Officer")
 and/or rerank to push specific signature blocks above generic discussion of "key personnel."
 Retrieval doesn’t just need the answer to exist — it needs the answer to exist in a clean,
 focused chunk.
+You're done with Day 5. Truly done now. The grep was the last diagnostic. You now have:
+
+Real eval pass rate: 5/8
+Two failures with confirmed root cause (retrieval scoring, not chunking)
+Two clean refusals working correctly (q7, q8)
+A deterministic retrieval pipeline (verified)
+A chunker that handles back-matter sections (verified)
+A clear, evidence-backed scope for Day 6 (one bug pattern, two test cases)
