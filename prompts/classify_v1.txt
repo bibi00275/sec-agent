@@ -1,0 +1,11 @@
+Classify the question below. Respond with ONLY a JSON object, no
+preamble, no markdown fences, no explanation. Use these exact keys:
+
+{{
+  "intent": one of "lookup_value" | "summarize" | "compare" | "forecast",
+  "requires_refusal": true if the question asks about the present moment ("today", "now", "currently") or asks for a forecast that requires data outside an SEC filing, else false
+}}
+
+Question: {question}
+
+JSON:

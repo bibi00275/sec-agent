@@ -145,6 +145,43 @@ def hybrid_retrieve(query: str, k: int = 3, alpha: float = 0.2):
 
 PROMPT = open("prompts/qa_v2.txt").read()
 
+import json
+import re
+
+CLASSIFY_PROMPT = open("prompts/classify_v1.txt").read()
+
+def classify_question(question: str) -> dict:
+    prompt = CLASSIFY_PROMPT.format(question=question)
+    r = ollama.chat(
+        model="qwen2.5:7b-instruct-q4_K_M",          # ← qwen for structured output, per stack spec
+        messages=[{"role": "user", "content": prompt}],
+        options={"temperature": 0.0},                  # ← determinism is non-negotiable for structured output
+    )
+    raw = r["message"]["content"].strip()
+    print(f"  [classify raw] {raw!r}")                 # ← always log raw output; you'll need it when parsing fails
+
+    # First attempt: parse as-is
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        pass
+
+    # Recovery: find the first {...} block in the output and try that
+    match = re.search(r'\{.*?\}', raw, re.DOTALL)      # ← non-greedy, handles markdown-fenced output
+    if match:
+        try:
+            return json.loads(match.group(0))
+        except json.JSONDecodeError:
+            pass
+
+    # Final fallback: structured failure, not a crash
+    return {"intent": "unknown", "requires_refusal": False, "_parse_error": raw}
+
+
+
+
+
+
 def ask(question: str) -> str:
     expanded = expand_query(question) if should_expand(question) else question
     hits = hybrid_retrieve(expanded)

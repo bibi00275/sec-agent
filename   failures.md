@@ -500,3 +500,81 @@ q8,Stock Today,PASS,Correct Refusal; system maintained the boundary between stat
 What surprised me: the system is now answering correctly 
 far more often than the grader credits. Substring matching can't 
 keep up with LLM phrasing variance — the grader has quietly become the bottleneck.
+
+Day 10 -
+ID,Question,Classifier Output,Correct Classification,Status,Why it failed
+q1,net sales fiscal 2024,"lookup, refusal=True","lookup, refusal=False",❌,False Positive Refusal
+q2,gross margin 2024,"forecast, refusal=True","lookup, refusal=False",❌,Wrong Intent & False Refusal
+q3,net income fiscal 2024,"lookup, refusal=True","lookup, refusal=False",❌,False Positive Refusal
+q4,Who is Apple's CEO?,"lookup, refusal=False","lookup, refusal=False",✅,Correct
+q5,SVP of Retail,"lookup, refusal=False","lookup, refusal=False",✅,Correct
+q6,credit risk,"lookup, refusal=False","summarize, refusal=False",❌,Wrong Intent (Complexity gap)
+q7,2026 revenue,"forecast, refusal=True","forecast, refusal=True",✅,Correct
+q8,stock price today,"lookup, refusal=True","lookup, refusal=True",✅,Correct
+q1: "What was Apple's total net sales in fiscal 2024?"
+
+What it should be: intent=lookup_value (it's asking for one number, the net sales figure), refusal=False (Apple's 2024 10-K obviously contains Apple's 2024 net sales).
+What qwen returned: intent=lookup_value ✓, refusal=True ✗
+The bug: qwen flagged requires_refusal=True on a question whose answer is literally in the filing. If you used this classifier to decide whether to retrieve, it would refuse to answer "what was Apple's 2024 net sales?" — even though Apple's 2024 10-K is the exact document that contains that answer.
+
+q2: "What is Apple's gross margin percentage for fiscal 2024?"
+
+Should be: intent=lookup_value, refusal=False. Same reasoning — fiscal 2024 ended September 2024, the 10-K reports it, it's a settled historical fact.
+qwen returned: intent=forecast ✗, refusal=True ✗
+The bug: qwen called this a forecast. But Apple's fiscal 2024 already happened — it ended September 28, 2024. The 10-K reports the result. Calling it a forecast is like calling "what was the score of last week's game?" a prediction.
+
+q3: "What was Apple's net income for fiscal 2024?"
+
+Should be: intent=lookup_value, refusal=False. Same as q1.
+qwen returned: intent=lookup_value ✓, refusal=True ✗
+Same bug as q1.
+
+q4: "Who is Apple's CEO?"
+
+Should be: intent=lookup_value, refusal=False. Asking for one fact (a name).
+qwen returned: intent=lookup_value ✓, refusal=False ✓ — correct.
+
+q5: "Who is Apple's SVP of Retail?"
+
+Same as q4 — correct.
+
+q6: "what does Apple say about credit risk"
+
+Should be: intent=summarize (it's open-ended — there's no single "credit risk number," you'd answer with a paragraph describing what the filing says). refusal=False (the filing has a credit risk section).
+qwen returned: intent=lookup_value ✗, refusal=False ✓
+The bug: qwen called it lookup_value. But there's no single value to look up. You don't return "$5 billion" — you return "Apple discusses credit risk in three contexts: trade receivables, derivative counterparties, investment portfolio." That's a summary, not a lookup. qwen is defaulting to lookup_value instead of recognizing the open-ended shape.
+
+q7: "What will the revenue of Apple in 2026"
+
+Should be: intent=forecast, refusal=True. The 10-K doesn't predict 2026.
+qwen returned: intent=forecast ✓, refusal=True ✓ — correct.
+
+q8: "What is the stock price of apple today"
+
+Should be: refusal=True (filing can't tell you today's price). Intent is debatable — it's lookup-shaped but the lookup target doesn't exist in the filing.
+qwen returned: intent=lookup_value, refusal=True ✓ — good enough; refusal is what matters
+==============================================================
+
+# Day 10 what surprised me
+"What surprised me: qwen labeled 'fiscal 2024 gross margin' as a 
+forecast even though the filing reports it. The model has no concept of when 
+'now' is — without a date anchor in the prompt, it confuses 'asks about a year' 
+with 'asks about the future.'
+[classify raw] '{\n  "intent": "lookup_value",\n  "requires_refusal": true\n}'
+What was Apple's total net sales in fiscal 2024?   → {'intent': 'lookup_value', 'requires_refusal': True}
+[classify raw] '{\n  "intent": "forecast",\n  "requires_refusal": true\n}'
+What is Apple's gross margin percentage for fiscal → {'intent': 'forecast', 'requires_refusal': True}
+[classify raw] '{\n  "intent": "lookup_value",\n  "requires_refusal": true\n}'
+What was Apple's net income for fiscal 2024?       → {'intent': 'lookup_value', 'requires_refusal': True}
+[classify raw] '{"intent":"lookup_value","requires_refusal":false}'
+Who is Apple's CEO?                                → {'intent': 'lookup_value', 'requires_refusal': False}
+[classify raw] '{"intent":"lookup_value","requires_refusal":false}'
+Who is Apple's Senior Vice President of Retail?    → {'intent': 'lookup_value', 'requires_refusal': False}
+[classify raw] '{\n  "intent": "lookup_value",\n  "requires_refusal": false\n}'
+what does Apple say about credit risk              → {'intent': 'lookup_value', 'requires_refusal': False}
+[classify raw] '{\n  "intent": "forecast",\n  "requires_refusal": true\n}'
+What will the revenue of Apple in 2026             → {'intent': 'forecast', 'requires_refusal': True}
+[classify raw] '{"intent":"lookup_value","requires_refusal":true}'
+What is the stock price of apple today             → {'intent': 'lookup_value', 'requires_refusal': True}
+(.venv) PS D:\AI Learning\ai_agent> 
+

@@ -62,3 +62,7 @@ q6 retrieves correctly without expansion,
 grader still scores 6/8 because substring matching 
 can't keep up with LLM phrasing variance — system-vs-grader gap is now the real bottleneck.
 
+Day 10: built JSON classifier with parse-recovery (qwen2.5, temp=0); 
+8/8 parsed cleanly but only 3/8 had correct labels — qwen confuses past fiscal years with 
+forecasts and over-applies lookup_value, so wiring it into ask() 
+as refusal short-circuit would regress q1-q3.

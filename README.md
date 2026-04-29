@@ -46,4 +46,23 @@ This is exactly the failure mode I warned you about: expansion can drown the ori
   inflation, not system improvement. Logged but not fixed.
 - =========
 - Substring graders are too narrow for entity-name questions when the answer can have variants. Names with middle initials, formal vs. casual phrasings, partial matches — all break naive substring matching. The fix is either widened expected_contains lists or a smarter grader. Both are deferred.
+- ========================
+- Week 1 Summary 
+- Good. Week 1 closed. That's a real interview-log line — captures the design (conditional gate), the constraint that drove it (Day 8 regression), and the bigger insight that emerged (grader is the bottleneck). Don't compress it further; the three-clause structure is doing real work.Before Day 10, take one minute. Week 1 is done. Look at where you started:
+  Day 1: ingestion + chunking + retrieval, end-to-end pipeline, dirty.
+  Day 9: conditional pre-retrieval LLM expansion, deterministic hybrid retrieval with tuned blend, temporal-aware refusal, eval discipline that caught a grader bottleneck the system itself revealed.
+  You hit five distinct bug classes (chunking boundaries, retrieval scoring, 
+- prompt brittleness, vocabulary mismatch, grader fragility), 
+- can name each one, can point to the commit that fixed it. 
+- That's the interview answer. Most candidates can describe RAG abstractly. 
+- You can describe what broke, what you tried, what worked, 
+- and what you deferred and why. The deferred parts matter as much as the fixed ones — 
+- knowing what not to fix on Day 6 (eval grader) is the same skill as knowing 
+- what to fix on Day 7 (temporal refusal). Both come from the same instinct.
+- One thing worth naming explicitly before Week 2: you have not yet built an agent. 
+- Everything so far has been a pipeline — a fixed sequence of steps where the same 
+- operations happen for every query. Even the "smart" expansion is a hardcoded if 
+- decision, not an LLM-driven one. Week 2 is where the system starts making decisions 
+- about what to do, not just executing predetermined steps. 
+- That's a different bug surface and a different kind of debugging.
 - 
