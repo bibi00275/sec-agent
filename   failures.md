@@ -621,3 +621,35 @@ and one-word definition were sufficient.
 Lesson: few-shot examples are only needed for shapes the model would 
 otherwise default away from — for self-evident shapes, the definition alone works.
 
+## Day 12 — Wired classifier into ask() as refusal short-circuit
+
+What I tried: Added classify_question() as the first step of ask(). When
+classification.requires_refusal is True, return refusal text immediately,
+skip expansion + retrieval + answer LLM. Used `is True` to ensure
+parse-error sentinel doesn't trip refusal. Kept QA prompt's own refusal
+logic intact (defense in depth).
+
+What happened: 7/8 passed (predicted 6/8). q7 and q8 short-circuited
+correctly — `[classifier refused]` fired, no retrieved chunks, returned
+refusal text directly. q6 happened to pass this run (LLM phrased "changes
+in liquidity" verbatim) — likely flicker, not a real fix. q4 still fails
+on the "Tim Cook" vs "Timothy D. Cook" grader artifact. q1-q3, q5 held.
+Latency on q7/q8 dropped from full pipeline to classifier-only.
+
+Failure category: correct (architectural change with no regression).
+
+Was this retrieval, generation, or agent-control failure?: None. Today
+proved a tool-selection-style architecture works in integration. The
+classifier is a primitive, not a full tool, but the wire-in pattern
+(call -> structured output -> dispatch) is the same shape as the tool
+calls coming in Days 13-14.
+
+Hypothesis: Defense-in-depth refusal (classifier + QA prompt) gives
+two independent failures of refusal logic for the system to survive
+either one breaking. q6's flicker is unchanged — coupling to LLM
+phrasing variance is now the dominant grader bottleneck.
+
+ # what surprise me
+I was surprised that the classifier refusal short-circuit worked 
+also how intents can reduce latency by skipping expensive retrieval and generation steps q7,q8 run very fast
+
