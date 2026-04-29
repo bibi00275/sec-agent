@@ -384,3 +384,5 @@ Two clean refusals working correctly (q7, q8)
 A deterministic retrieval pipeline (verified)
 A chunker that handles back-matter sections (verified)
 A clear, evidence-backed scope for Day 6 (one bug pattern, two test cases)
+
+Confirmed q5's answer exists in chunk 121 (1349 chars, dense). Same root cause as q4: retrieval scoring rewards repeated keyword matches over single specific matches.
