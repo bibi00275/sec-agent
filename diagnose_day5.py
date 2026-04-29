@@ -10,9 +10,20 @@ from day1 import hybrid_retrieve
 # a retrieval bug. We grep the actual chunk store.
 
 from day1 import chunks
+
+# Why this looks like this: we search for the role title first because we don't
+# know who holds it (or whether the filing names anyone at all). Lowercasing both
+# sides because filings inconsistently capitalize titles. We print chunk_id +
+# wider context so we can tell role-mentions apart from segment-mentions.
+
+needles = ["senior vice president", "retail", "deirdre", "o'brien"]
+
 for i, c in enumerate(chunks):
-    if "Deirdre" in c or "O'Brien" in c:
-        print(f"--- chunk {i} (len={len(c)}) ---")
-        idx = c.find("Deirdre") if "Deirdre" in c else c.find("O'Brien")
-        print(c[max(0,idx-100):idx+400])
+    text = c if isinstance(c, str) else c["text"]      # ← handle either chunk shape
+    low = text.lower()
+    hits = [n for n in needles if n in low]
+    if hits:
+        idx = low.find(hits[0])
+        print(f"--- chunk {i} | hits={hits} | len={len(text)} ---")
+        print(text[max(0, idx-150):idx+400])
         print()

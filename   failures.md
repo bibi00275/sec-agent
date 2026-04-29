@@ -386,3 +386,50 @@ A chunker that handles back-matter sections (verified)
 A clear, evidence-backed scope for Day 6 (one bug pattern, two test cases)
 
 Confirmed q5's answer exists in chunk 121 (1349 chars, dense). Same root cause as q4: retrieval scoring rewards repeated keyword matches over single specific matches.
+
+## Day 6 — Lowered hybrid retrieval alpha from 0.5 to 0.2
+
+**What I tried:** Diagnosed that hybrid retrieval was already in place
+(dense + BM25 blended at 50/50). Built a diagnostic that ran the same
+queries at alpha=0.5, 0.2, and 0.0 and printed component-level scores.
+Found that the dense-embedding component was scoring nonsense chunks
+(e.g., "Item 1B. Unresolved Staff Comments None.") highly on short
+queries. Lowered alpha to 0.2 to reduce the broken component's weight.
+Re-ran full eval suite.
+
+**What happened:** Headline pass rate stayed 5/8, but three rows moved.
+q5 (SVP Retail): real win — chunk 121 climbed from rank #3 to rank #1,
+LLM correctly answered "Deirdre O'Brien." q6 (credit risk): grader
+artifact, not a regression — LLM gave a correct answer about credit
+risk but didn't include the exact substring "changes in liquidity"
+the grader requires. q8 (stock price today): real regression —
+retrieval now surfaces a stock-price graph chunk with September 2024
+data, and the LLM answered "$430" instead of refusing. Previously
+q8 passed because the graph chunk wasn't being retrieved, so the LLM
+refused by default. Refusal was accidental, not principled.
+
+**Failure category:** mixed. q5: retrieval (fixed). q6: eval-grader
+brittleness. q8: generation (LLM doesn't reason about temporal
+mismatch between question and context).
+
+**Was this retrieval, generation, or agent-control failure?:** Today
+isolated three different layers. q5 was retrieval-scoring. q6 is
+eval-grader (not the system). q8 is prompt/generation — the prompt
+doesn't tell the model to refuse when context is historical and
+question is present-tense.
+
+**Hypothesis:** The system has a structural weakness — refusal is
+downstream of retrieval, not driven by question semantics. Changing
+retrieval changes refusal behavior. To make refusal robust, either
+the prompt needs explicit temporal-mismatch instructions, or the
+question needs to be classified for "asks about present" intent
+before retrieval runs.
+
+ # what surprised me
+What surprised me: q8 was passing for the wrong reason. At alpha=0.5 the right
+chunk wasn't retrieved, so the LLM refused by default — that 'PASS' had nothing to do
+with the system understanding the question. Lowering alpha exposed the fragility. 
+I now don't trust any of my passing tests until I've perturbed inputs and watched what flips.
+
+I was surprised at q8 passing before the change, so I am doubtful i am system or Passes 
+I am getting if the system is really understanding my question

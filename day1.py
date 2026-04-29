@@ -105,7 +105,7 @@ def cosine(a: np.ndarray, b: np.ndarray) -> float:
 # that's now blocking observability. We also break ties on chunk_id so argsort's
 # behavior on equal scores stops mattering.
 
-def hybrid_retrieve(query: str, k: int = 3, alpha: float = 0.5):
+def hybrid_retrieve(query: str, k: int = 3, alpha: float = 0.2):
     q_emb = embed(query)
     dense_scores = np.array([cosine(q_emb, e) for e in chunk_vecs])
     lex_scores = bm25.get_scores(simple_tokenize(query))

@@ -36,3 +36,9 @@ SIGNATURES/POA sections, but eval pass rate stayed at 5/8 because retrieval
 still scores generic "key personnel" prose above the signature block for short queries; 
 tradeoff: improved chunk quality without moving the eval, 
 exposing scoring as the next bottleneck.
+
+Day 6: lowered hybrid alpha 0.5 → 0.2 because dense embeddings were scoring nonsense chunks high on short queries; tradeoff: q5 fixed and q8's accidental 
+refusal exposed as fragile, real delta is +1/-1 hidden under flat 5/8 headline.
+
+Day 6: lowered hybrid alpha 0.5 → 0.2 because dense embeddings were scoring nonsense chunks high on short queries; tradeoff: q5 fixed and q8's accidental refusal exposed as fragile, 
+real delta is +1/-1 hidden under flat 5/8 headline.
