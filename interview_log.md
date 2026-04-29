@@ -55,3 +55,10 @@ but regressed q6 (credit risk paraphrased into "policies and procedures," pulled
 tradeoff: acronym expansion works, conceptual paraphrasing doesn't, 
 expansion needs to be conditional not blanket.
 
+Day 9: gated query expansion behind acronym/short-query heuristic because 
+Day 8's blanket expansion regressed q6; tradeoff: 
+q4 stays fixed via expansion path, 
+q6 retrieves correctly without expansion, 
+grader still scores 6/8 because substring matching 
+can't keep up with LLM phrasing variance — system-vs-grader gap is now the real bottleneck.
+

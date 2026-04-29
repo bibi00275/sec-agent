@@ -32,3 +32,18 @@ This is exactly the failure mode I warned you about: expansion can drown the ori
 
 
 ============================================
+- should_expand() is a regex+length heuristic, not learned. Will mis-trigger
+  on queries with capitalized words that aren't acronyms ("Apple's CEO" is
+  fine, "RSU" is fine, but a query like "What is GAAP?" — caught — vs.
+  "How does the FASB rule apply?" — caught — vs. "ApplePay" — caught wrongly?
+  Worth watching as eval grows.
+- Eval grader is now the limiting factor on multiple rows. Substring
+  matching fails on conceptual questions where LLM phrasing varies run-to-run.
+  Manual inspection currently shows 8/8 system pass rate vs 6/8 grader pass
+  rate. Fix deferred to Week 2/3.
+- expected_contains for q4 is too narrow (does not match "Timothy D. Cook").
+  Could fix by adding ["Cook", "Tim Cook", "Timothy"] but that's grader
+  inflation, not system improvement. Logged but not fixed.
+- =========
+- Substring graders are too narrow for entity-name questions when the answer can have variants. Names with middle initials, formal vs. casual phrasings, partial matches — all break naive substring matching. The fix is either widened expected_contains lists or a smarter grader. Both are deferred.
+- 

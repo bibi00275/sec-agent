@@ -113,6 +113,14 @@ def expand_query(question: str) -> str:
     print(f"  [expand] {question!r} → {expanded!r}")    # ← log every expansion; you'll need this when something breaks
     return expanded
 
+def should_expand(question: str) -> bool:
+    # Why this looks like this: expansion helps queries with acronyms or
+    # very short phrasing where the formal version differs sharply. It HURTS
+    # conceptual queries by paraphrasing concept words into adjacent boilerplate.
+    # Heuristic, not perfect — we're keeping it boring on purpose.
+    has_acronym = bool(re.search(r'\b[A-Z]{2,5}\b', question))   # ← CEO, CFO, SVP, EPS, R&D-ish
+    is_short = len(question.split()) <= 6
+    return has_acronym or is_short
 # Why this looks like this: we widen the return type to (chunk_id, score, text)
 # tuples so we can actually diagnose. Returning bare strings was a Day 1 shortcut
 # that's now blocking observability. We also break ties on chunk_id so argsort's
@@ -138,7 +146,7 @@ def hybrid_retrieve(query: str, k: int = 3, alpha: float = 0.2):
 PROMPT = open("prompts/qa_v2.txt").read()
 
 def ask(question: str) -> str:
-    expanded = expand_query(question)
+    expanded = expand_query(question) if should_expand(question) else question
     hits = hybrid_retrieve(expanded)
     print("\n--- RETRIEVED CHUNKS ---")
     for rank, (cid, score, text) in enumerate(hits):
