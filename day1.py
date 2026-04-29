@@ -148,7 +148,7 @@ PROMPT = open("prompts/qa_v2.txt").read()
 import json
 import re
 
-CLASSIFY_PROMPT = open("prompts/classify_v1.txt").read()
+CLASSIFY_PROMPT = open("prompts/classify_v2.txt").read()
 
 def classify_question(question: str) -> dict:
     prompt = CLASSIFY_PROMPT.format(question=question)

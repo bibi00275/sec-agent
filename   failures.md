@@ -576,5 +576,48 @@ what does Apple say about credit risk              → {'intent': 'lookup_value'
 What will the revenue of Apple in 2026             → {'intent': 'forecast', 'requires_refusal': True}
 [classify raw] '{"intent":"lookup_value","requires_refusal":true}'
 What is the stock price of apple today             → {'intent': 'lookup_value', 'requires_refusal': True}
-(.venv) PS D:\AI Learning\ai_agent> 
+
+# Day 11 
+[classify raw] '{"intent": "lookup_value", "requires_refusal": false}'
+What was Apple's R&D expense in fiscal 2022?            → {'intent': 'lookup_value', 'requires_refusal': False}
+[classify raw] '{"intent": "summarize", "requires_refusal": false}'
+Describe Apple's approach to capital allocation.        → {'intent': 'summarize', 'requires_refusal': False}
+[classify raw] '{"intent": "forecast", "requires_refusal": true}'
+How will iPhone sales perform in fiscal 2028?           → {'intent': 'forecast', 'requires_refusal': True}
+[classify raw] '{"intent": "compare", "requires_refusal": false}'
+How did iPhone revenue change between fiscal 2023 and 2 → {'intent': 'compare', 'requires_refusal': False}
+
+## Day 11 — Classifier prompt v2 (temporal anchor + few-shot)
+
+**What I tried:** Forked classify_v1.txt → classify_v2.txt. Added explicit
+temporal anchor (filing date Sep 2024, current date Apr 2026), three
+few-shot examples (lookup_value past year, summarize open-ended, forecast
+future year). Wired v2 into day1.py.
+
+**What happened:** Label correctness 4/8 → 8/8 on eval set. Three identical
+runs (cold-start) confirmed determinism at temp=0. Stress-tested with 4
+unseen questions including a "compare" question with no example in the
+prompt — all 4 labeled correctly across two runs.
+
+**Failure category:** correct (with caveat that eval set is small).
+
+**Was this retrieval, generation, or agent-control failure?:** Generation,
+specifically structured-output semantics. Yesterday isolated that qwen
+parses cleanly but mislabels; today proved few-shot + temporal grounding
+is a sufficient fix for both bug classes (year confusion, intent default).
+
+**Hypothesis:** For clearly-shaped intents (compare, forecast), the type
+list with a one-word definition is enough. Examples are only needed for
+shapes the model would otherwise default away from (summarize → which
+qwen defaults to lookup_value). This is the playbook for tool selection
+in Days 13-15: only show examples for shapes that aren't self-evident
+from the verb.
+
+# what surprised me
+What surprised me: the compare question got the right intent 
+label even though my prompt had no compare example. 
+The verb 'change between' was unambiguous enough that the type list 
+and one-word definition were sufficient. 
+Lesson: few-shot examples are only needed for shapes the model would 
+otherwise default away from — for self-evident shapes, the definition alone works.
 

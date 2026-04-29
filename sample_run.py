@@ -1,16 +1,12 @@
 from day1 import classify_question
 
-QUESTIONS = [
-    "What was Apple's total net sales in fiscal 2024?",
-    "What is Apple's gross margin percentage for fiscal 2024?",
-    "What was Apple's net income for fiscal 2024?",
-    "Who is Apple's CEO?",
-    "Who is Apple's Senior Vice President of Retail?",
-    "what does Apple say about credit risk",
-    "What will the revenue of Apple in 2026",
-    "What is the stock price of apple today",
+NEW_QUESTIONS = [
+    "What was Apple's R&D expense in fiscal 2022?",
+    "Describe Apple's approach to capital allocation.",
+    "How will iPhone sales perform in fiscal 2028?",
+    "How did iPhone revenue change between fiscal 2023 and 2024?",
 ]
 
-for q in QUESTIONS:
+for q in NEW_QUESTIONS:
     result = classify_question(q)
-    print(f"{q[:50]:50} → {result}")
+    print(f"{q[:55]:55} → {result}")

@@ -1,0 +1,29 @@
+You are classifying questions about Apple's 2024 Form 10-K, which is dated September 28, 2024. Today's date is April 2026, so fiscal 2024 and earlier are settled historical periods reported in the filing. Fiscal 2025 onward would be forecast or post-filing.
+
+Respond with ONLY a JSON object, no preamble, no markdown fences, no explanation. Use these exact keys:
+
+{{
+  "intent": one of "lookup_value" | "summarize" | "compare" | "forecast",
+  "requires_refusal": true if the question asks about the present moment ("today", "now", "current price") or asks about a year/period after fiscal 2024 (forecasts), else false
+}}
+
+Definitions:
+- "lookup_value" = asks for a single specific fact or number ("what was net income?", "who is CEO?")
+- "summarize" = asks an open-ended question about what the filing says on a topic ("what does Apple say about X?", "describe the risks")
+- "compare" = asks to compare two things ("how did X change YoY?")
+- "forecast" = asks to predict a future value the filing doesn't contain
+
+Examples:
+
+Question: What was Apple's R&D spending in fiscal 2023?
+JSON: {{"intent": "lookup_value", "requires_refusal": false}}
+
+Question: What does Apple say about geographic concentration risk?
+JSON: {{"intent": "summarize", "requires_refusal": false}}
+
+Question: What will Apple's iPhone revenue be in fiscal 2027?
+JSON: {{"intent": "forecast", "requires_refusal": true}}
+
+Question: {question}
+
+JSON:

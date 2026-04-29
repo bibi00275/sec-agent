@@ -61,8 +61,21 @@ q4 stays fixed via expansion path,
 q6 retrieves correctly without expansion, 
 grader still scores 6/8 because substring matching 
 can't keep up with LLM phrasing variance — system-vs-grader gap is now the real bottleneck.
-
-Day 10: built JSON classifier with parse-recovery (qwen2.5, temp=0); 
-8/8 parsed cleanly but only 3/8 had correct labels — qwen confuses past fiscal years with 
-forecasts and over-applies lookup_value, so wiring it into ask() 
-as refusal short-circuit would regress q1-q3.
+==================================
+Day 10: built JSON classifier with parse-recovery (qwen2.5, temp=0); 8/8 parsed 
+cleanly but only 4/8 had correct labels — qwen confuses past fiscal years with forecasts 
+and over-applies lookup_value, so wiring it into ask() as refusal short-circuit would 
+regress q1-q3.
+===========================================
+Day 11: classifier prompt v2 with temporal anchor + 3 few-shot examples 
+lifted label accuracy 4/8 → 8/8, stress-tested with 4 unseen queries (4/4 including 
+a compare with no example) and 3 cold-start runs (deterministic); tradeoff: prompt grew
+12 → 30 lines, but few-shot is now the default playbook for any structured-output bug.
+[classify raw] '{"intent": "lookup_value", "requires_refusal": false}'
+What was Apple's R&D expense in fiscal 2022?            → {'intent': 'lookup_value', 'requires_refusal': False}
+[classify raw] '{"intent": "summarize", "requires_refusal": false}'
+Describe Apple's approach to capital allocation.        → {'intent': 'summarize', 'requires_refusal': False}
+[classify raw] '{"intent": "forecast", "requires_refusal": true}'
+How will iPhone sales perform in fiscal 2028?           → {'intent': 'forecast', 'requires_refusal': True}
+[classify raw] '{"intent": "compare", "requires_refusal": false}'
+=======================
