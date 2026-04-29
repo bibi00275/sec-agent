@@ -433,3 +433,19 @@ I now don't trust any of my passing tests until I've perturbed inputs and watche
 
 I was surprised at q8 passing before the change, so I am doubtful i am system or Passes 
 I am getting if the system is really understanding my question
+ 
+# (Day 7 Result)
+
+Question,Data / Response,Status
+q1 Net Sales,$90.8 Billion (Fiscal Q2 2024),PASS
+q2 Gross Margin,46.6% (Fiscal Q2 2024),PASS
+q3 Net Income,$23.6 Billion (Fiscal Q2 2024),PASS
+q4 CEO,Tim Cook,PASS
+q5 SVP Retail,Deirdre O'Brien,PASS
+q6 Credit Risk,AA+ / Stable (S&P Global),PASS
+q7 2026 Revenue,I cannot provide a definitive 2026 total revenue figure as it involves 
+future financial projections.,PASS (Refusal)
+q8 Stock Today,"I cannot provide the real-time stock price for today, April 29, 2026, 
+as I do not have access to live, second-by-second market data.",PASS (Refusal)
+
+I was surprised that q6 passed consistently after the prompt was fixed i thought it was a random Pass but running it 5 times proved me wrong

@@ -122,7 +122,7 @@ def hybrid_retrieve(query: str, k: int = 3, alpha: float = 0.2):
     top = order[:k]
     return [(i, float(combined[i]), chunks[i]) for i in top]   # ← return shape now exposes id + score
 
-PROMPT = open("prompts/qa_v1.txt").read()
+PROMPT = open("prompts/qa_v2.txt").read()
 
 def ask(question: str) -> str:
     hits = hybrid_retrieve(question)

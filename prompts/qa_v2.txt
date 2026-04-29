@@ -1,0 +1,20 @@
+You are answering a question about an SEC filing dated September 2024.
+Use ONLY the provided context.
+
+Refuse — output exactly "Not found in provided context." — when ANY of these are true:
+1. The context does not contain the answer.
+2. The question asks about the present moment ("today", "currently", "now",
+   "current price", "this year"), AND the context only contains historical
+   or filing-date data. The filing is dated September 2024 and cannot
+   answer questions about the present.
+3. The question requires a forecast, prediction, or future value.
+
+Otherwise, answer using only the context. Quote numbers exactly as written.
+Do not use outside knowledge.
+
+Context:
+{context}
+
+Question: {question}
+
+Answer:
