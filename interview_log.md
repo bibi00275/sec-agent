@@ -48,3 +48,10 @@ Day 7: replaced single-rule refusal with three enumerated triggers because v1's 
 q8 fixed cleanly via temporal clause, 
 q6 fixed as side-effect of "quote exactly" instruction (verified 5/5 over re-runs), 
 pass rate 5/8 → 7/8.
+
+
+Day 8: pre-retrieval query expansion fixed q4 (CEO → Chief Executive Officer, surfaced Cook chunk)
+but regressed q6 (credit risk paraphrased into "policies and procedures," pulled controls section);
+tradeoff: acronym expansion works, conceptual paraphrasing doesn't, 
+expansion needs to be conditional not blanket.
+

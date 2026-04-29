@@ -436,16 +436,30 @@ I am getting if the system is really understanding my question
  
 # (Day 7 Result)
 
-Question,Data / Response,Status
-q1 Net Sales,$90.8 Billion (Fiscal Q2 2024),PASS
-q2 Gross Margin,46.6% (Fiscal Q2 2024),PASS
-q3 Net Income,$23.6 Billion (Fiscal Q2 2024),PASS
-q4 CEO,Tim Cook,PASS
-q5 SVP Retail,Deirdre O'Brien,PASS
-q6 Credit Risk,AA+ / Stable (S&P Global),PASS
-q7 2026 Revenue,I cannot provide a definitive 2026 total revenue figure as it involves 
-future financial projections.,PASS (Refusal)
-q8 Stock Today,"I cannot provide the real-time stock price for today, April 29, 2026, 
-as I do not have access to live, second-by-second market data.",PASS (Refusal)
+Question,Result,Status,Notes / Logic
+q1 net sales,PASS,Held,Data points are consistent with reported fiscal results.
+q2 gross margin,PASS,Held,Data points are consistent with reported fiscal results.
+q3 net income,PASS,Held,Data points are consistent with reported fiscal results.
+q4 CEO,FAIL,Wrong Answer,"Refusal language shifted, but the core identification remains inaccurate or blocked."
+q5 SVP Retail,PASS,Held,Executive leadership data is stable.
+q6 credit risk,PASS,Flipped,Accuracy improved; previous failure likely due to conflicting credit tier sources.
+q7 2026 revenue,PASS,Held,"Consistent refusal based on the ""forecast clause"" for non-reported future data."
+q8 stock today,PASS,Clean Refusal,Correctly identifies inability to provide real-time/live market data for current date.
 
+
+
+ # what surprised me
 I was surprised that q6 passed consistently after the prompt was fixed i thought it was a random Pass but running it 5 times proved me wrong
+
+Question,Day 7,Day 8,Notes
+q1 net sales,PASS,PASS,held
+q2 gross margin,PASS,PASS,held
+q3 net income,PASS,PASS,held
+q4 CEO,FAIL,PASS,expansion fixed it ✅
+q5 SVP Retail,PASS,PASS,held
+q6 credit risk,PASS,FAIL,expansion broke it ❌ (wrong refusal)
+q7 2026 revenue,PASS,PASS,held
+q8 stock today,PASS,PASS,held
+
+# what surprised me
+What surprised me was one query expansion fixed on bug and broke another one, which shows how fragile the system is and how much the components are intertwined.

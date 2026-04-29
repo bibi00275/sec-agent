@@ -1,0 +1,14 @@
+You are rewriting a question to improve search over an SEC filing.
+Your job is to expand acronyms, add likely synonyms, and include
+formal phrasings that the filing would use. Output ONLY the rewritten
+query — no explanation, no preamble, no quotes.
+
+Rules:
+- Expand acronyms (CEO → CEO Chief Executive Officer; CFO → CFO Chief Financial Officer).
+- Keep the original words. Add to them, do not replace.
+- Do not invent facts. Only add terminology.
+- Keep it under 20 words.
+
+Original question: {question}
+
+Rewritten query:

@@ -66,7 +66,7 @@ def embed(s:str) -> np.ndarray:
 # is the dumbest reliable cache-busting strategy.
 
 EMB_CACHE = "chunk_vecs_v2_section.pkl"                # ← new filename, NOT "chunk_vecs.pkl"
-
+EXPAND_PROMPT = open("prompts/query_expand_v1.txt").read()
 if os.path.exists(EMB_CACHE):
     with open(EMB_CACHE, "rb") as f:
         chunks, chunk_vecs = pickle.load(f)
@@ -100,6 +100,19 @@ def cosine(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-10))
 
 
+
+
+def expand_query(question: str) -> str:
+    prompt = EXPAND_PROMPT.format(question=question)
+    r = ollama.chat(
+        model="qwen2.5:7b-instruct-q4_K_M",            # ← qwen for structured-output tasks per stack spec
+        messages=[{"role": "user", "content": prompt}],
+        options={"temperature": 0.0},                   # ← determinism on expansion; we want stable rewrites
+    )
+    expanded = r["message"]["content"].strip()
+    print(f"  [expand] {question!r} → {expanded!r}")    # ← log every expansion; you'll need this when something breaks
+    return expanded
+
 # Why this looks like this: we widen the return type to (chunk_id, score, text)
 # tuples so we can actually diagnose. Returning bare strings was a Day 1 shortcut
 # that's now blocking observability. We also break ties on chunk_id so argsort's
@@ -125,7 +138,8 @@ def hybrid_retrieve(query: str, k: int = 3, alpha: float = 0.2):
 PROMPT = open("prompts/qa_v2.txt").read()
 
 def ask(question: str) -> str:
-    hits = hybrid_retrieve(question)
+    expanded = expand_query(question)
+    hits = hybrid_retrieve(expanded)
     print("\n--- RETRIEVED CHUNKS ---")
     for rank, (cid, score, text) in enumerate(hits):
         print(f"[chunk {rank}] id={cid} score={score:.4f}")
