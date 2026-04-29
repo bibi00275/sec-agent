@@ -65,4 +65,7 @@ This is exactly the failure mode I warned you about: expansion can drown the ori
 - decision, not an LLM-driven one. Week 2 is where the system starts making decisions 
 - about what to do, not just executing predetermined steps. 
 - That's a different bug surface and a different kind of debugging.
+- =======================
+  "No. Most RAG systems are not agents. RAG is retrieve-and-generate; 
+- agents add decision-making and tool selection on top. Whether you need agents depends on whether your questions require multiple non-predetermined steps. Single-fact lookups don't need agents. Multi-step comparison or synthesis questions do."
 - 

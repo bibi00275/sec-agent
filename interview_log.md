@@ -79,3 +79,17 @@ Describe Apple's approach to capital allocation.        → {'intent': 'summariz
 How will iPhone sales perform in fiscal 2028?           → {'intent': 'forecast', 'requires_refusal': True}
 [classify raw] '{"intent": "compare", "requires_refusal": false}'
 ==========================================================================
+Day 12 :Day 12: wired classifier into ask() as pre-retrieval refusal gate 
+so q7/q8 short-circuit before expansion+retrieval+answer LLM; tradeoff: 
+7/8 passed (predicted 6/8, q6 lucky flicker), 
+q7/q8 latency cut from ~14s to ~3s, 
+refusal logic now in two layers (classifier + QA prompt)
+which is defense-in-depth but creates coupling worth watching.
+
+==================================================================
+Search on google & understand =>On Day 6 I changed the retrieval blend from 50/50 dense+lexical to 
+80/20, and the headline pass rate didn't move — but one question 
+that was passing started failing because changing retrieval changed 
+what got refused. I realized that question had been passing for the wrong reason —
+the right chunk wasn't being retrieved, so the LLM refused by default. 
+That made me distrust passing tests until I'd perturbed them.
