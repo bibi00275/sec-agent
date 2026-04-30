@@ -134,3 +134,8 @@ Day 15: added defensive parser that rewrites schema-collapsed tool calls
 (action=tool_name → action=tool_call, tool=name) after two prompt iterations failed; 
 tradeoff: schema spec is now advisory not enforced — Q1 recovered cleanly without false
 positives on Q2 (final_answer) or Q3 (already-correct tool_call), so recovery is narrow enough to ship.
+
+Day 16: added second tool (financial lookup with metric/year args); 5/7 worked,
+exposed two new failure modes — under-action on T2 (refused to call metadata 
+after second tool was added) and tool circumvention on T7 (skipped metadata, 
+used training-data knowledge of fiscal year); tradeoff: tool selection works for unambiguous cases but tool descriptions couple — adding a second tool changed behavior on questions about the first tool.

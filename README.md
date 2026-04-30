@@ -90,3 +90,72 @@ Bank this — it's a real lesson: schema compliance is not consistent across que
 Models pattern-match on the question, not just the schema. Short factual questions and longer reasoning questions can produce different output shapes.
 
 Q3 is now consistently wrong across three days. Three runs, three identical "Nov 1 is before Oct 31." The reliability of the wrong answer is itself interesting — it tells you qwen2.5 doesn't randomly fail at date comparison; it's systematically wrong on this specific comparison. Bank as evidence the Critic agent will need to handle date logic explicitly.
+
+Day 16
+T1: "What fiscal year does this filing cover?"
+What you asked: A simple metadata question. The answer is "2024."
+What you expected: The model calls lookup_filing_metadata, reads fiscal_year: 2024, says "2024."
+What happened:
+
+Model produced {"action": "lookup_filing_metadata", "args": {}} — the schema-collapse bug from Days 13-15.
+Your defensive parser (Day 15) recovered it and dispatched the tool.
+Tool returned fiscal_year: 2024.
+Model said "2024."
+
+Takeaway: ✓ Worked exactly as predicted. Confirms your Day 15 defensive parser still works now that there are two tools. The model picked the right tool, even though it formatted the call wrong (which the parser fixed).
+
+T2: "Was this filing filed before October 2024?"
+What you asked: A date-comparison question. The filing was filed November 1, 2024, so the answer is "no."
+What you expected: The model calls lookup_filing_metadata, gets the date 2024-11-01, and reasons wrong about it (says "yes, before October 31") — exactly like Days 13, 14, and 15.
+What happened: The model did not call any tool. It said "to answer this, we'd need to check filing_date metadata" — and then stopped without actually calling the tool.
+Why this is weird: Three days in a row, this same question caused the model to call the tool. Today, with no change to this question or its tool, the model decided not to call it. The only thing that changed today was that you added a second tool (financial value lookup). That second tool has nothing to do with this question.
+The lesson: Adding tools changes the model's behavior on questions unrelated to the new tool. This is called "coupling" — the tool descriptions interact with each other in the model's head, even when they shouldn't. With one tool, the model was eager to use it. With two tools, the model became cautious about using either.
+Takeaway: ✗ Different from prediction, and the new behavior is worse — the model used to give a wrong answer, now it gives no answer at all. New failure mode: under-action. The model refused to do something it should have done.
+
+T3: "What was Apple's net sales in 2024?"
+What you asked: A specific financial number. Answer: $391,035 million.
+What you expected: The model calls lookup_financial_value(metric="net_sales", year=2024) and returns the value.
+What happened:
+
+Model produced {"action": "lookup_financial_value", "args": {"metric": "net_sales", "year": 2024}} — schema collapse again, but with the new tool.
+Defensive parser recovered.
+Tool returned $391,035 million.
+Model said "Apple's net sales in 2024 were $391,035 million."
+
+What's good: The arguments were perfect. metric: "net_sales" (lowercase, underscore — exactly what the tool expects). year: 2024 (integer, not a string). The model honored your enumerated valid values from the description.
+Takeaway: ✓ Worked exactly as predicted. Confirms argument generation works when you enumerate valid values in the description.
+
+T4: "What is Apple's gross margin percentage for fiscal 2023?"
+What you asked: Same shape as T3 but for a different metric and year. Answer: 44.1%.
+What you expected: Model calls lookup_financial_value(metric="gross_margin_pct", year=2023).
+What happened: Exactly that. Schema collapse, parser recovered, tool returned 44.1%, model gave the correct answer.
+Takeaway: ✓ Worked exactly as predicted. Same lesson as T3, reinforced — argument generation is reliable when constraints are spelled out in the description.
+
+T5: "Who is Apple's CEO?"
+What you asked: A question neither of your tools can answer. Metadata returns dates, financial returns numbers. Neither returns names.
+What you expected: The model recognizes neither tool fits and returns a final_answer saying it doesn't know.
+What happened: The model said "to answer this, I would need to know the name from the SEC filing" — final_answer, no tool calls. Exactly right.
+Why this matters: Your tool descriptions both included "Do NOT use when..." sections. The model honored those constraints and didn't try to force a tool that couldn't help.
+Takeaway: ✓ Worked exactly as predicted. Negative descriptions ("do not use when...") are doing real work — they prevent the model from trying tools that don't fit.
+
+T6: "What was Apple's R&D expense in 2024?"
+What you asked: A financial question, but for a metric (R&D expense) that isn't in your tool's hardcoded data. Your tool only has net_sales, net_income, gross_margin_pct.
+What you expected: The model would call lookup_financial_value with some guess at the metric name, your tool would return {"error": "Unknown metric/year combination"}, and the model would handle the error.
+What happened: The model didn't even try. It read the description, saw "Available metrics: net_sales, net_income, gross_margin_pct," noted that R&D wasn't in the list, and said so directly without calling any tool.
+Why this is interesting: Your prediction was that the model would try and fail and then handle the error. Reality was better — the model recognized the constraint upfront and skipped the failed call entirely. More efficient than recovering from errors.
+Takeaway: ✓ Worked, but better than predicted. Lesson: enumerated constraints in the description prevent failed tool calls entirely, which is more efficient than letting the model try and recover.
+
+T7: "What was Apple's net income in the fiscal year this filing covers?"
+What you asked: A question that should require two tool calls. The model needs to:
+
+Call lookup_filing_metadata to find out what fiscal year this filing covers (2024).
+Then call lookup_financial_value(net_income, 2024) with that year.
+
+You designed this specifically to test if the model could plan a sequence of tool calls.
+What you expected: Two-step plan. Metadata first, then financial.
+What happened: The model called lookup_financial_value(net_income, 2024) directly. It skipped the metadata lookup entirely. Single step.
+Why this is the most important result of the day: The model knew the filing covered 2024 without checking. Where did it get that knowledge? From its training data — Apple's FY2024 10-K is widely-discussed, and qwen2.5 has seen it before. The model didn't need to look up the year; it already knew.
+The good news: The answer is correct. $93,736 million is right. Fewer tool calls, less latency.
+The bad news: This is a trap. Imagine I asked you the same question about a 2018 filing for a company called Acme Corp. The model has no training data on Acme Corp. It might confidently invent a year and produce a wrong-but-confident answer, never checking the metadata tool. You'd never know it didn't use the tool unless you read the trace.
+The lesson — bank this one: Tool circumvention. The model uses its own knowledge instead of the tool you gave it when its training data covers the question. The trace looks shorter, the answer might be right, but the system isn't doing what you designed it to do. In production, this fails silently on inputs outside the model's training distribution.
+Takeaway: ✗ Different from prediction. Got the right answer the wrong way. New failure mode you couldn't see with one tool.

@@ -68,9 +68,26 @@ def lookup_filing_metadata() -> dict:
         "fiscal_year": 2024,
     }
 
+
+def lookup_financial_value(metric: str, year: int) -> dict:
+    """Look up a specific financial metric for a given fiscal year."""
+    data = {
+        ("net_sales", 2024): "$391,035 million",
+        ("net_sales", 2023): "$383,285 million",
+        ("net_income", 2024): "$93,736 million",
+        ("net_income", 2023): "$96,995 million",
+        ("gross_margin_pct", 2024): "46.2%",
+        ("gross_margin_pct", 2023): "44.1%",
+    }
+    key = (metric, year)
+    if key not in data:
+        return {"error": f"Unknown metric/year combination: {metric}, {year}"}
+    return {"metric": metric, "year": year, "value": data[key]}
+
 # Registry: maps tool names (what the LLM types) to actual Python functions.
 TOOLS = {
     "lookup_filing_metadata": lookup_filing_metadata,
+    "lookup_financial_value": lookup_financial_value,
 }
 
 # Description: what the LLM SEES when deciding whether to call the tool.
@@ -81,15 +98,26 @@ Available tools:
 
 1. lookup_filing_metadata()
    Returns: {"company", "filing_type", "filing_date", "period_end_date", "fiscal_year"}
-   Use when: the question asks about the filing date, the period it covers,
+   Use when: the question asks about the filing date, the period covered,
    the fiscal year, or the company name.
-   Do NOT use when: the question asks about financial figures (revenue,
-   margin, expenses), executive names, business operations, or content from
-   the filing body. The metadata tool only returns dates and identifiers.
+   Do NOT use when: the question asks about financial figures, executive
+   names, business operations, or content from the filing body.
    No arguments.
 
+2. lookup_financial_value(metric: str, year: int)
+   Returns: {"metric", "year", "value"} on success, {"error": ...} on failure.
+   Use when: the question asks about a specific financial number for a
+   specific fiscal year. Examples: net sales, net income, gross margin
+   percentage, revenue, profit.
+   Do NOT use when: the question asks about non-financial facts (filing
+   dates, executive names, business strategy) or about a metric/year
+   combination not in the standard set.
+   Available metrics: "net_sales", "net_income", "gross_margin_pct"
+   Available years: 2023, 2024
+   Arguments: {"metric": "<one of the available metrics>", "year": <int>}
+
 If no tool can answer the question, return a final_answer that says what
-you'd need to know to answer it.
+you'd need to know.
 """
 
 
@@ -308,6 +336,10 @@ def ask_with_tools(question: str, max_steps: int = 4) -> str:
 
     return f"[hit step cap after {max_steps} steps]"
 
+
+# Why this looks like this: hardcoded values for now — the goal today is to
+# test tool SELECTION, not retrieval. We're avoiding accidentally testing two
+#
 
 QUESTIONS = [
     "What was Apple's total net sales in fiscal 2024?",

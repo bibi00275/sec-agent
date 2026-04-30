@@ -790,3 +790,63 @@ FINAL: Yes, the filing was filed on November 1, 2024, which is before October 31
 retrieved the correct date (November 1, 2024) and concluded it's 'before October 31, 2024.' 
 The wrong answer is consistent, not random. The model isn't sometimes confused about 
 date comparison — it's reliably wrong on this specific one. That's evidence the Critic agent in Week 3 will need explicit date-logic checks, not just generic reasoning verification."
+
+
+## Day 16 — Second tool (lookup_financial_value); two new failure modes
+
+What I tried: Added lookup_financial_value(metric, year) with hardcoded
+data for net_sales, net_income, gross_margin_pct across 2023-2024.
+Updated TOOL_DESCRIPTIONS with positive/negative use cases for both
+tools and enumerated valid args. Tested on 7 questions covering
+metadata-only, financial-only, neither-tool, missing-data, and
+multi-step categories.
+
+What happened: 5/7 fully matched prediction. Two unexpected results:
+
+- T2 (filed before October 2024): model returned final_answer WITHOUT
+  calling the metadata tool, saying "would need to check filing_date
+  metadata." Three days ago this question reliably called the tool
+  and reasoned wrong. Adding a second tool seemingly made the model
+  more cautious about calling any tool. New failure: under-action.
+
+- T7 (net income for the fiscal year this filing covers): designed as
+  a multi-step test (metadata → financial). Model skipped metadata
+  entirely, called lookup_financial_value(net_income, 2024) directly.
+  Got the right answer because Apple FY2024 is in qwen2.5's training
+  data. New failure mode: tool circumvention — model uses internal
+  knowledge instead of tools when training data covers the question.
+
+T1, T3, T4, T5, T6 all behaved as expected. Argument generation was
+perfect on T3 and T4 (correct enum values, no hallucinations).
+Defensive parser fired on the new tool, confirming the schema-collapse
+bug is not tool-specific.
+
+Failure category breakdown:
+- T2: tool-selection (under-action — should have called, didn't)
+- T7: tool-selection (circumvention — used training data instead of tool)
+- All others: correct
+
+Was this retrieval, generation, or agent-control failure?: Both T2 and
+T7 are agent-control failures, but new sub-types I haven't logged
+before. T2 is "model refused an action it should have taken." T7 is
+"model bypassed a tool with internal knowledge." Both expose the
+fact that adding tools changes behavior on questions unrelated to
+the new tool — coupling at the description layer.
+
+Hypothesis:
+- T2's behavior change suggests the model treats tools as costly and
+  becomes more cautious as the tool count grows. Adding a "do not
+  hesitate to call tools when they fit" instruction in the prompt
+  may help. Worth testing.
+- T7's circumvention can only be tested with questions where the
+  model's training data is unreliable — comparison questions across
+  filings, questions about non-Apple companies, or questions with
+  invented/distorted facts. Bank for Day 17+.
+- Argument generation worked because enumerated valid values were in
+  the description. This is a generalizable pattern: enumerate the
+  valid input space, the model honors it.
+
+    # what surprised me
+I was surprised to see T7 Curcumvention — the model used its internal knowledge to answer a question that was designed to require tool use.
+This shows that when the model has seen the answer in training data, it may skip the tool entirely, which is a new failure mode. It means that for questions where the answer is likely in the training data, we can't be sure if the model is using the tool or just recalling from memory. 
+This complicates testing and means we need to design questions that are outside of the model's training data to truly test tool use.
