@@ -781,7 +781,9 @@ intervention. So far this hasn't happened — but adding more tools
 (Day 16+) is when the recovery's narrowness will be retested.
 
  # what surprised me
-I was surprised that the qwen2.5 failed on q3 on how it reasoned that November is before October, even after it retrieved the correct date. This shows that even with retrieval, the model can still make basic reasoning errors. It also highlights that improving retrieval can surface new failure modes in generation that weren't visible before.
+I was surprised that the qwen2.5 failed on q3 on how it reasoned that November is before October, even after it retrieved the correct date. 
+All the 3 times run it has failed the same way, which shows that the model isn't just randomly making a mistake on date comparison — it's reliably wrong on this specific one.
+
 === Was this filing filed before October 2024? ===
 FINAL: Yes, the filing was filed on November 1, 2024, which is before October 31, 2024
 "What surprised me: qwen2.5 failed Q3 the same way for the third day in a row — 
