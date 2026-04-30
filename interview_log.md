@@ -93,3 +93,23 @@ that was passing started failing because changing retrieval changed
 what got refused. I realized that question had been passing for the wrong reason —
 the right chunk wasn't being retrieved, so the LLM refused by default. 
 That made me distrust passing tests until I'd perturbed them.
+====================================================================
+
+Day 13: built first tool-use loop (qwen2.5, ReAct-style, single tool); 
+0-1/3 questions worked, hit three distinct failure modes — schema violation 
+(model put tool name in action field), over-calling (tool fired on irrelevant question), 
+and post-tool reasoning failure (correct data, wrong logic); 
+tradeoff: foundation exists and is observable, 
+but each failure class points at a different fix and they don't share a single solution.
+
+===================================================================
+
+# what surprised me 
+- What surprised me: the tool returned the correct date (November 1, 2024)
+- and the model still concluded it was 'before October 31, 2024.'
+- The trace looked clean — every step succeeded — 
+- but the final answer was wrong. Successful tool calls don't 
+- guarantee correct reasoning, and no prompt fix will fully solve this. 
+- It's the architectural argument for the Critic agent in Week
+
+============================

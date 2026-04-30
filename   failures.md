@@ -653,3 +653,48 @@ phrasing variance is now the dominant grader bottleneck.
 I was surprised that the classifier refusal short-circuit worked 
 also how intents can reduce latency by skipping expensive retrieval and generation steps q7,q8 run very fast
 
+============
+Day 13
+Case,Failure Mode,Lesson Learned,Underlying Cause
+Q1,Schema Violation,Schema-following is fragile on small models.,"The AI collapsed the action and tool fields into one, breaking the code's parser."
+Q2,Over-calling + Violation,"Tool descriptions need explicit ""don't use when..."" guards.",The AI tried to use a tool for an irrelevant question AND messed up the JSON format.
+Q3,Logic/Reasoning Failure,Successful tool calls don't guarantee correct answers.,"The AI retrieved the correct data (Nov 1) but hallucinated that it was ""before October."""
+
+## Day 13 — First tool-use loop (lookup_filing_metadata) — three failure modes
+
+What I tried: Hand-rolled ReAct-style loop with one tool
+(lookup_filing_metadata, no args). qwen2.5:7b at temp=0, JSON action
+schema with two action types ("tool_call" or "final_answer"). Tested
+on 3 questions of varying tool-relevance.
+
+What happened: 0/3 by strict grading; 1/3 if grading "called tool
+correctly." Three distinct failures:
+- Q1 (fiscal year): schema violation — model put tool name in `action`
+  field instead of using {action: "tool_call", tool: "<name>"}.
+  Dispatcher rejected.
+- Q2 (gross margin, irrelevant tool): same schema violation AND model
+  called the tool when it shouldn't have. Stacked failures.
+- Q3 (filing date comparison): schema correct, tool fired, got result
+  ("2024-11-01"). Model then reasoned that "November 1 is before October
+  31" — wrong logic on correct data. Most insidious failure mode.
+
+Failure category:
+- Q1: tool-execution (schema violation, dispatcher couldn't act)
+- Q2: tool-selection + tool-execution
+- Q3: planning/reasoning failure post-tool — model ignored its own
+  retrieved data
+
+Was this retrieval, generation, or agent-control failure?: All three
+agent-control failures, three different sub-types. First day where the
+selection/execution distinction is concrete enough to log per-row.
+
+Hypothesis:
+- Schema violation on Q1/Q2 likely caused by prompt's <tool_name>
+  placeholder syntax — small models pattern-match better on concrete
+  examples than templated ones. Fix: use the literal tool name in the
+  example block.
+- Q2 over-calling needs explicit "do not call this tool when..." in
+  the description.
+- Q3's post-tool reasoning failure is harder. No prompt fix is fully
+  reliable; long-term answer is a Critic step (Week 3) or constrained
+  answer schemas. For now, document and live with it.

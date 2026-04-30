@@ -67,5 +67,21 @@ This is exactly the failure mode I warned you about: expansion can drown the ori
 - That's a different bug surface and a different kind of debugging.
 - =======================
   "No. Most RAG systems are not agents. RAG is retrieve-and-generate; 
-- agents add decision-making and tool selection on top. Whether you need agents depends on whether your questions require multiple non-predetermined steps. Single-fact lookups don't need agents. Multi-step comparison or synthesis questions do."
-- 
+- agents add decision-making and tool selection on top. 
+- Whether you need agents depends on whether your questions require multiple non-predetermined
+- steps. 
+- Single-fact lookups don't need agents. Multi-step comparison or synthesis questions do."
+- =============================================
+
+
+Day 13
+The lesson — bank this one
+This is called over-calling or tool over-eagerness. 
+It's one of the two classic failure modes in tool-use systems 
+(the other is under-calling, where the model never uses the tools you gave it).
+The fix has two parts:
+
+In the tool description, say when not to use it. 
+Right now your description says "use when you need filing date / period / fiscal year." It needs to also say "do not use for financial figures, executive names, or business operations data."
+In the prompt itself, give the model permission to skip tools. Tell it explicitly: "if no tool can answer the question, return a final_answer explaining what you'd need to know."
+====================================

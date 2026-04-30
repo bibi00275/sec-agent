@@ -30,6 +30,9 @@ ITEM_RE = re.compile(
     r'(Item\s+\d+[A-Z]?\.\s|SIGNATURES\s|EXHIBIT\s+INDEX\s|POWER\s+OF\s+ATTORNEY\s)',
     re.IGNORECASE
 )
+EMB_CACHE = "chunk_vecs_v2_section.pkl"                # ← new filename, NOT "chunk_vecs.pkl"
+EXPAND_PROMPT = open("prompts/query_expand_v1.txt").read()
+TOOL_PROMPT = open("prompts/tool_use_v1.txt").read()
 
 def section_chunk(text: str, max_chars: int = 2000) -> list[str]:
     parts = ITEM_RE.split(text)                        # ← splits on the heading, keeps the heading as a separate token
@@ -51,7 +54,37 @@ def section_chunk(text: str, max_chars: int = 2000) -> list[str]:
                 chunks.append(sec[j:j+max_chars])      # ← sub-chunks inherit the heading because it's at the front of `sec`
     return chunks
 
+# Why this looks like this: real tools are just Python functions. The "tool"
+# abstraction is a description we give the LLM + a way to dispatch its calls
+# back to the function. There's no magic here — it's a registry pattern.
 
+def lookup_filing_metadata() -> dict:
+    """Returns metadata about the loaded SEC filing."""
+    return {
+        "company": "Apple Inc.",
+        "filing_type": "10-K",
+        "filing_date": "2024-11-01",         # ← when the filing was filed
+        "period_end_date": "2024-09-28",     # ← what fiscal period it covers
+        "fiscal_year": 2024,
+    }
+
+# Registry: maps tool names (what the LLM types) to actual Python functions.
+TOOLS = {
+    "lookup_filing_metadata": lookup_filing_metadata,
+}
+
+# Description: what the LLM SEES when deciding whether to call the tool.
+# This is the part you'll iterate on most. The function's docstring isn't
+# enough — you need to tell the model *when* to call it, not just what it does.
+TOOL_DESCRIPTIONS = """
+Available tools:
+
+1. lookup_filing_metadata()
+   Returns: {"company", "filing_type", "filing_date", "period_end_date", "fiscal_year"}
+   Use when: you need to know the filing date, period covered, fiscal year,
+   or company name to answer the question or to decide whether to refuse.
+   No arguments.
+"""
 
 
 # --- 3. Embed every chunk. This will take a few minutes on 16GB. Watch it. ---
@@ -65,8 +98,7 @@ def embed(s:str) -> np.ndarray:
 # embeddings and think your fix did nothing. Cache invalidation by filename
 # is the dumbest reliable cache-busting strategy.
 
-EMB_CACHE = "chunk_vecs_v2_section.pkl"                # ← new filename, NOT "chunk_vecs.pkl"
-EXPAND_PROMPT = open("prompts/query_expand_v1.txt").read()
+
 if os.path.exists(EMB_CACHE):
     with open(EMB_CACHE, "rb") as f:
         chunks, chunk_vecs = pickle.load(f)
@@ -203,6 +235,61 @@ def ask(question: str) -> str:
     r = ollama.chat(model="llama3.1:8b-instruct-q4_K_M",
                     messages=[{"role": "user", "content": prompt}])
     return r["message"]["content"]
+
+def ask_with_tools(question: str, max_steps: int = 4) -> str:
+    """Run a tool-use loop until the model produces a final_answer or hits the step cap."""
+    tool_history = ""
+
+    for step in range(max_steps):
+        prompt = TOOL_PROMPT.format(
+            tool_descriptions=TOOL_DESCRIPTIONS,
+            tool_history=tool_history if tool_history else "(none)",
+            question=question,
+        )
+        r = ollama.chat(
+            model="qwen2.5:7b-instruct-q4_K_M",
+            messages=[{"role": "user", "content": prompt}],
+            options={"temperature": 0.0},
+        )
+        raw = r["message"]["content"].strip()
+        print(f"  [step {step}] raw: {raw!r}")               # ← always log raw output
+
+        # Parse with the same recovery pattern as classify_question
+        try:
+            decision = json.loads(raw)
+        except json.JSONDecodeError:
+            match = re.search(r'\{.*\}', raw, re.DOTALL)
+            if match:
+                try:
+                    decision = json.loads(match.group(0))
+                except json.JSONDecodeError:
+                    return f"[parse error after {step+1} steps] {raw}"
+            else:
+                return f"[parse error after {step+1} steps] {raw}"
+
+        action = decision.get("action")
+
+        if action == "final_answer":
+            return decision.get("answer", "[no answer field]")
+
+        if action == "tool_call":
+            tool_name = decision.get("tool")
+            tool_fn = TOOLS.get(tool_name)
+            if tool_fn is None:
+                return f"[unknown tool: {tool_name}]"        # ← halt cleanly on bad tool name
+            try:
+                result = tool_fn(**decision.get("args", {}))
+                print(f"  [step {step}] tool {tool_name} returned: {result}")
+                tool_history += f"\nStep {step}: called {tool_name}() → {result}"
+            except Exception as e:
+                tool_history += f"\nStep {step}: {tool_name}() raised {type(e).__name__}: {e}"
+            continue
+
+        # Action was something other than tool_call or final_answer
+        return f"[unknown action: {action}]"
+
+    return f"[hit step cap after {max_steps} steps]"
+
 
 QUESTIONS = [
     "What was Apple's total net sales in fiscal 2024?",
