@@ -129,3 +129,8 @@ I had been about to write down 'question shape affects schema compliance'
 as a lesson, but my own diagnostic just ruled that out. 
 The actual lesson is: when a fix fails, run a 
 falsifying experiment before guessing again. Negative results are real findings
+
+Day 15: added defensive parser that rewrites schema-collapsed tool calls 
+(action=tool_name → action=tool_call, tool=name) after two prompt iterations failed; 
+tradeoff: schema spec is now advisory not enforced — Q1 recovered cleanly without false
+positives on Q2 (final_answer) or Q3 (already-correct tool_call), so recovery is narrow enough to ship.

@@ -258,7 +258,7 @@ def ask_with_tools(question: str, max_steps: int = 4) -> str:
             options={"temperature": 0.0},
         )
         raw = r["message"]["content"].strip()
-        print(f"  [step {step}] raw: {raw!r}")               # ← always log raw output
+        print(f"  [step {step}] raw: {raw!r}")
 
         # Parse with the same recovery pattern as classify_question
         try:
@@ -275,6 +275,19 @@ def ask_with_tools(question: str, max_steps: int = 4) -> str:
 
         action = decision.get("action")
 
+        # ← NEW: defensive parser for schema-collapse recovery (Day 15)
+        # qwen2.5 sometimes puts the tool name directly in `action` and drops
+        # the `tool` field. Day 14's prompt fixes didn't suppress this.
+        # We detect the malformed shape and rewrite it before dispatch.
+        if action in TOOLS:
+            print(f"  [recovered] schema collapsed; rewriting action='{action}' as tool_call")
+            decision = {
+                "action": "tool_call",
+                "tool": action,
+                "args": decision.get("args", {}),
+            }
+            action = "tool_call"
+
         if action == "final_answer":
             return decision.get("answer", "[no answer field]")
 
@@ -282,7 +295,7 @@ def ask_with_tools(question: str, max_steps: int = 4) -> str:
             tool_name = decision.get("tool")
             tool_fn = TOOLS.get(tool_name)
             if tool_fn is None:
-                return f"[unknown tool: {tool_name}]"        # ← halt cleanly on bad tool name
+                return f"[unknown tool: {tool_name}]"
             try:
                 result = tool_fn(**decision.get("args", {}))
                 print(f"  [step {step}] tool {tool_name} returned: {result}")
@@ -291,7 +304,6 @@ def ask_with_tools(question: str, max_steps: int = 4) -> str:
                 tool_history += f"\nStep {step}: {tool_name}() raised {type(e).__name__}: {e}"
             continue
 
-        # Action was something other than tool_call or final_answer
         return f"[unknown action: {action}]"
 
     return f"[hit step cap after {max_steps} steps]"

@@ -88,3 +88,5 @@ In the prompt itself, give the model permission to skip tools. Tell it explicitl
 
 Bank this — it's a real lesson: schema compliance is not consistent across question shapes even with identical tools and identical prompts. 
 Models pattern-match on the question, not just the schema. Short factual questions and longer reasoning questions can produce different output shapes.
+
+Q3 is now consistently wrong across three days. Three runs, three identical "Nov 1 is before Oct 31." The reliability of the wrong answer is itself interesting — it tells you qwen2.5 doesn't randomly fail at date comparison; it's systematically wrong on this specific comparison. Bank as evidence the Critic agent will need to handle date logic explicitly.

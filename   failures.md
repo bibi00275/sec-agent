@@ -739,3 +739,52 @@ data), the schema is correct. This is a model behavior, not a prompt
 behavior. Day 15 fix: defensive parser that recovers from this
 specific malformed shape — accept that the schema spec is advisory,
 not enforced.
+
+## Day 15 — Defensive parser for schema-collapse recovery
+
+What I tried: Added a 5-line recovery block to ask_with_tools, after
+JSON parse and before action dispatch. When the parsed `action` value
+matches a registered tool name, the parser rewrites the decision dict
+as the schema-correct form and continues. Tested on the original 3
+questions to verify recovery is narrow (only fires on the malformed
+shape).
+
+What happened:
+- Q1 (fiscal year): RECOVERED. [recovered] log fired, tool dispatched,
+  final answer "This filing covers the fiscal year 2024." First time
+  Q1 has produced a real answer.
+- Q2 (gross margin): UNCHANGED. No recovery log. Model declined the
+  tool with a clean final_answer naming the limitation. Confirms
+  recovery doesn't trigger on final_answer responses.
+- Q3 (date comparison): UNCHANGED. No recovery log (Q3's tool_call was
+  already schema-correct). Tool dispatched normally. Same wrong
+  reasoning ("November 1 is before October 31"). Expected — silent
+  reasoning failure is a Week 3 problem, not addressable in code
+  parsing.
+
+Failure category:
+- Q1: correct via defensive parsing
+- Q2: correct (was tool-selection on Day 13, fixed by prompt v2 on Day 14)
+- Q3: planning (silent reasoning, known, deferred to Week 3)
+
+Was this retrieval, generation, or agent-control failure?: Today is
+the second time the system adapts in code rather than fighting the
+model via prompts (first was the JSON regex fallback in
+classify_question, Day 10). Pattern emerging: when prompt iteration
+fails twice, defensive parsing is the right next move.
+
+Hypothesis: Defensive parsing scales as long as the malformed shapes
+are detectable from the output alone (e.g., "action is a tool name"
+is a clean detection). When malformed shapes overlap with legitimate
+ones, the recovery becomes ambiguous and you need a different
+intervention. So far this hasn't happened — but adding more tools
+(Day 16+) is when the recovery's narrowness will be retested.
+
+ # what surprised me
+I was surprised that the qwen2.5 failed on q3 on how it reasoned that November is before October, even after it retrieved the correct date. This shows that even with retrieval, the model can still make basic reasoning errors. It also highlights that improving retrieval can surface new failure modes in generation that weren't visible before.
+=== Was this filing filed before October 2024? ===
+FINAL: Yes, the filing was filed on November 1, 2024, which is before October 31, 2024
+"What surprised me: qwen2.5 failed Q3 the same way for the third day in a row — 
+retrieved the correct date (November 1, 2024) and concluded it's 'before October 31, 2024.' 
+The wrong answer is consistent, not random. The model isn't sometimes confused about 
+date comparison — it's reliably wrong on this specific one. That's evidence the Critic agent in Week 3 will need explicit date-logic checks, not just generic reasoning verification."
