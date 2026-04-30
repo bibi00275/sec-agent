@@ -698,3 +698,44 @@ Hypothesis:
 - Q3's post-tool reasoning failure is harder. No prompt fix is fully
   reliable; long-term answer is a Critic step (Week 3) or constrained
   answer schemas. For now, document and live with it.
+
+## Day 14 — Tool prompt v2 + falsifying diagnostic on schema bug
+
+What I tried: Forked tool_use_v1 → v2. Two changes: replaced
+<tool_name> placeholder with literal "lookup_filing_metadata" in the
+example, and added enumerated "Do NOT use when..." section to
+TOOL_DESCRIPTIONS. Re-ran 3 test questions. After Q1 still failed,
+ran a 3-phrasing diagnostic to test whether question shape drove the
+schema collapse.
+
+What happened:
+- Q1 (fiscal year): schema bug HELD — same {"action": "<tool_name>"}
+  collapse as Day 13. Concrete example did not fix it.
+- Q2 (gross margin): FIXED — model returned final_answer naming the
+  tool that couldn't help. Negative description worked.
+- Q3 (date comparison): held — same wrong reasoning ("Nov 1 is before
+  Oct 31"). Expected; not addressed today.
+- Diagnostic: 3 different phrasings of Q1 produced IDENTICAL malformed
+  schema. Question shape is NOT the variable. Hypothesis falsified.
+
+Failure category:
+- Q1: tool-execution (schema violation, persistent across two prompt
+  iterations)
+- Q2: correct (was tool-selection on Day 13)
+- Q3: planning (silent reasoning, known)
+
+Was this retrieval, generation, or agent-control failure?: Three
+agent-control failures with three different sub-types. Day 14
+isolated which fixes work and which don't:
+- Negative tool descriptions DO control over-calling.
+- Concrete examples DO NOT fix Q1's schema collapse. Cause unknown after today.
+- Hypothesis ruled out: the bug is not phrasing-driven (3 phrasings produced identical breakage). Actual cause unknown. Day 15 sidesteps the bug with a defensive parser that recovers the malformed-but-recoverable shape, rather than continuing to guess at the root cause
+
+
+Hypothesis: The model collapses {action, tool} into {action: tool_name}
+when the question is short and unambiguously needs one tool. When the
+question requires deliberation (date comparison) or no tool (financial
+data), the schema is correct. This is a model behavior, not a prompt
+behavior. Day 15 fix: defensive parser that recovers from this
+specific malformed shape — accept that the schema spec is advisory,
+not enforced.

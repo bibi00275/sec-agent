@@ -113,3 +113,19 @@ but each failure class points at a different fix and they don't share a single s
 - It's the architectural argument for the Critic agent in Week
 
 ============================
+Day 14: tool prompt v2 (concrete example + negative description) 
+fixed Q2 over-calling but Q1 schema collapse held;
+3-phrasing diagnostic falsified the question-shape hypothesis, 
+narrowing the bug to "model drops schema fields on short factual tool calls"; 
+tradeoff: prompt edits cover some classes, others need defensive parsing — 
+Day 15 will recover the malformed shape rather than fight it.
+
+ # what surprised me
+
+my prompt fix didn't work for Q1. 
+I then ran three different phrasings of the same question — they all produced identical broken output, 
+so phrasing isn't what's causing the bug. 
+I had been about to write down 'question shape affects schema compliance' 
+as a lesson, but my own diagnostic just ruled that out. 
+The actual lesson is: when a fix fails, run a 
+falsifying experiment before guessing again. Negative results are real findings

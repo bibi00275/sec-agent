@@ -32,7 +32,7 @@ ITEM_RE = re.compile(
 )
 EMB_CACHE = "chunk_vecs_v2_section.pkl"                # ← new filename, NOT "chunk_vecs.pkl"
 EXPAND_PROMPT = open("prompts/query_expand_v1.txt").read()
-TOOL_PROMPT = open("prompts/tool_use_v1.txt").read()
+TOOL_PROMPT = open("prompts/tool_use_v2.txt").read()
 
 def section_chunk(text: str, max_chars: int = 2000) -> list[str]:
     parts = ITEM_RE.split(text)                        # ← splits on the heading, keeps the heading as a separate token
@@ -81,9 +81,15 @@ Available tools:
 
 1. lookup_filing_metadata()
    Returns: {"company", "filing_type", "filing_date", "period_end_date", "fiscal_year"}
-   Use when: you need to know the filing date, period covered, fiscal year,
-   or company name to answer the question or to decide whether to refuse.
+   Use when: the question asks about the filing date, the period it covers,
+   the fiscal year, or the company name.
+   Do NOT use when: the question asks about financial figures (revenue,
+   margin, expenses), executive names, business operations, or content from
+   the filing body. The metadata tool only returns dates and identifiers.
    No arguments.
+
+If no tool can answer the question, return a final_answer that says what
+you'd need to know to answer it.
 """
 
 

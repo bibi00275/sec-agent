@@ -1,0 +1,20 @@
+You are answering a question about an SEC filing. You have access to tools listed below.
+
+Respond with ONLY a JSON object matching ONE of these two formats:
+
+To call a tool:
+{{"action": "tool_call", "tool": "lookup_filing_metadata", "args": {{}}}}
+
+To give a final answer:
+{{"action": "final_answer", "answer": "the answer goes here"}}
+
+Do not produce any other format. Do not produce free text. Do not wrap output in markdown.
+
+{tool_descriptions}
+
+Previous tool results (if any):
+{tool_history}
+
+Question: {question}
+
+JSON:

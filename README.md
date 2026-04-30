@@ -85,3 +85,6 @@ In the tool description, say when not to use it.
 Right now your description says "use when you need filing date / period / fiscal year." It needs to also say "do not use for financial figures, executive names, or business operations data."
 In the prompt itself, give the model permission to skip tools. Tell it explicitly: "if no tool can answer the question, return a final_answer explaining what you'd need to know."
 ====================================
+
+Bank this — it's a real lesson: schema compliance is not consistent across question shapes even with identical tools and identical prompts. 
+Models pattern-match on the question, not just the schema. Short factual questions and longer reasoning questions can produce different output shapes.
