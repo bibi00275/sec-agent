@@ -850,3 +850,62 @@ Hypothesis:
 I was surprised to see T7 Curcumvention — the model used its internal knowledge to answer a question that was designed to require tool use.
 This shows that when the model has seen the answer in training data, it may skip the tool entirely, which is a new failure mode. It means that for questions where the answer is likely in the training data, we can't be sure if the model is using the tool or just recalling from memory. 
 This complicates testing and means we need to design questions that are outside of the model's training data to truly test tool use.
+
+## Day 17 — Trajectory eval framework — caught T7 circumvention
+
+What I tried: Modified ask_with_tools to return (answer, trajectory)
+when return_trajectory=True. Trajectory tracks tool_calls list, steps,
+final_action. Created evals/v1/trajectories.jsonl with 7 rows. Built
+run_trajectory_evals.py to grade path (did expected tools appear?)
+alongside outcome (substring match) and report divergent rows.
+
+What happened: Path 5/7, Outcome 6/7, Both 5/7, Divergent: [T7].
+- T7 outcome-passed (right answer "$93,736 million") but path-failed
+  (skipped lookup_filing_metadata, used training data for fiscal year).
+  Day 16 diagnosis confirmed: the model bypassed the metadata tool
+  because Apple FY2024 is in qwen2.5's training set.
+- T2 double-failed (no tool called, no useful answer). Path eval
+  surfaces this cleanly.
+- 5 questions had path and outcome agree. Those 5 are now trusted
+  for verifiable reasons.
+
+Failure category:
+- T7: tool circumvention (path catches it, outcome misses it)
+- T2: under-action (both evals fail it)
+- All others: correct (verified by both)
+
+Was this retrieval, generation, or agent-control failure?: Today is
+infrastructure — the eval system can now see agent-control failures
+that outcome evals couldn't. Before today, T7 was a silent pass.
+Going forward, every agent test produces two scores; divergence
+between them is the signal to investigate.
+
+Hypothesis: Trajectory eval will be load-bearing for Week 3. Once a
+planner/executor split exists, "did the agent take a sane path?"
+becomes the dominant question — the final answer alone tells you
+nothing about whether the planner was reasoning correctly. Today
+proved the infrastructure works on a 7-question test set. Adding
+more rows is incremental.
+
+# what surprised me 
+"What surprised me: T2 — the model knew it needed the metadata tool, said so in its answer, 
+and then didn't call it. This is under-action: recognizing the right action, 
+then refusing to take it. I don't know the exact cause, but it correlates 
+with adding the second tool on Day 16 — with one tool the model was eager to call it; with two tools it became hesitant on questions that need either one. Tool descriptions seem to interact even when they don't logically overlap
+
+
+
+Day 18
+Use the template I gave you yesterday but fill in:
+
+Path 7/7, Outcome 7/7, Both 7/7, Divergent: none
+T7 result: planner emitted 2-step plan including metadata → both tools called → path passed → outcome contains 93,736
+T2 result: planner emitted metadata call → no under-action → path passed → outcome passed (note: may be coincidence on date reasoning, not yet stress-tested)
+New failure modes: none in this run, BUT the test set is too easy to surface them
+
+
+
+
+# what surprised me
+I was surprise with no prompt intervention I was able to fix the T7 circumvention by splitting the planner and answerer.
+But I am thinking it is due to the small set of questions 

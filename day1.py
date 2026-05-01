@@ -270,11 +270,18 @@ def ask(question: str) -> str:
                     messages=[{"role": "user", "content": prompt}])
     return r["message"]["content"]
 
-def ask_with_tools(question: str, max_steps: int = 4) -> str:
-    """Run a tool-use loop until the model produces a final_answer or hits the step cap."""
+def ask_with_tools(question: str, max_steps: int = 4, return_trajectory: bool = False):
+    """Run a tool-use loop. If return_trajectory=True, return (answer, trajectory_dict)."""
     tool_history = ""
+    trajectory = {
+        "tool_calls": [],
+        "steps": 0,
+        "final_action": None,
+    }
 
     for step in range(max_steps):
+        trajectory["steps"] = step + 1
+
         prompt = TOOL_PROMPT.format(
             tool_descriptions=TOOL_DESCRIPTIONS,
             tool_history=tool_history if tool_history else "(none)",
@@ -286,9 +293,9 @@ def ask_with_tools(question: str, max_steps: int = 4) -> str:
             options={"temperature": 0.0},
         )
         raw = r["message"]["content"].strip()
-        print(f"  [step {step}] raw: {raw!r}")
+        print(f"  [step {step}] raw: {raw!r}", flush=True)
 
-        # Parse with the same recovery pattern as classify_question
+        # Parse with recovery
         try:
             decision = json.loads(raw)
         except json.JSONDecodeError:
@@ -297,18 +304,19 @@ def ask_with_tools(question: str, max_steps: int = 4) -> str:
                 try:
                     decision = json.loads(match.group(0))
                 except json.JSONDecodeError:
-                    return f"[parse error after {step+1} steps] {raw}"
+                    trajectory["final_action"] = "parse_error"
+                    answer = f"[parse error after {step+1} steps] {raw}"
+                    return (answer, trajectory) if return_trajectory else answer
             else:
-                return f"[parse error after {step+1} steps] {raw}"
+                trajectory["final_action"] = "parse_error"
+                answer = f"[parse error after {step+1} steps] {raw}"
+                return (answer, trajectory) if return_trajectory else answer
 
         action = decision.get("action")
 
-        # ← NEW: defensive parser for schema-collapse recovery (Day 15)
-        # qwen2.5 sometimes puts the tool name directly in `action` and drops
-        # the `tool` field. Day 14's prompt fixes didn't suppress this.
-        # We detect the malformed shape and rewrite it before dispatch.
+        # Defensive parser: schema-collapse recovery (Day 15)
         if action in TOOLS:
-            print(f"  [recovered] schema collapsed; rewriting action='{action}' as tool_call")
+            print(f"  [recovered] schema collapsed; rewriting action='{action}' as tool_call",flush=True)
             decision = {
                 "action": "tool_call",
                 "tool": action,
@@ -317,30 +325,131 @@ def ask_with_tools(question: str, max_steps: int = 4) -> str:
             action = "tool_call"
 
         if action == "final_answer":
-            return decision.get("answer", "[no answer field]")
+            trajectory["final_action"] = "final_answer"
+            answer = decision.get("answer", "[no answer field]")
+            return (answer, trajectory) if return_trajectory else answer
 
         if action == "tool_call":
             tool_name = decision.get("tool")
             tool_fn = TOOLS.get(tool_name)
             if tool_fn is None:
-                return f"[unknown tool: {tool_name}]"
+                trajectory["final_action"] = "unknown_tool"
+                answer = f"[unknown tool: {tool_name}]"
+                return (answer, trajectory) if return_trajectory else answer
             try:
                 result = tool_fn(**decision.get("args", {}))
-                print(f"  [step {step}] tool {tool_name} returned: {result}")
+                print(f"  [step {step}] tool {tool_name} returned: {result}",flush=True)
                 tool_history += f"\nStep {step}: called {tool_name}() → {result}"
+                trajectory["tool_calls"].append(tool_name)            # ← record the call
             except Exception as e:
                 tool_history += f"\nStep {step}: {tool_name}() raised {type(e).__name__}: {e}"
             continue
 
-        return f"[unknown action: {action}]"
+        # Unknown action
+        trajectory["final_action"] = "unknown"
+        answer = f"[unknown action: {action}]"
+        return (answer, trajectory) if return_trajectory else answer
 
-    return f"[hit step cap after {max_steps} steps]"
+    # Step cap path
+    trajectory["final_action"] = "step_cap"
+    answer = f"[hit step cap after {max_steps} steps]"
+    return (answer, trajectory) if return_trajectory else answer
 
 
 # Why this looks like this: hardcoded values for now — the goal today is to
 # test tool SELECTION, not retrieval. We're avoiding accidentally testing two
 #
+PLANNER_PROMPT = open("prompts/planner_v1.txt").read()
+def execute_plan(plan: list) -> list:
+    """Run each tool call in the plan in order. Returns a list of step records."""
+    results = []
+    for step in plan:
+        tool_name = step.get("tool")
+        args = step.get("args", {})
+        tool_fn = TOOLS.get(tool_name)
+        if tool_fn is None:
+            results.append({"tool": tool_name, "args": args, "error": f"unknown tool: {tool_name}"})
+            continue
+        try:
+            output = tool_fn(**args)
+            print(f"  [exec] {tool_name}({args}) → {output}", flush=True)
+            results.append({"tool": tool_name, "args": args, "output": output})
+        except Exception as e:
+            results.append({"tool": tool_name, "args": args, "error": f"{type(e).__name__}: {e}"})
+    return results
 
+def plan_tool_calls(question: str) -> dict:
+    """Ask the planner agent for a tool-call sequence. Returns {'plan': [...]} or fallback."""
+    prompt = PLANNER_PROMPT.format(
+        tool_descriptions=TOOL_DESCRIPTIONS,
+        question=question,
+    )
+    r = ollama.chat(
+        model="qwen2.5:7b-instruct-q4_K_M",
+        messages=[{"role": "user", "content": prompt}],
+        options={"temperature": 0.0},
+    )
+    raw = r["message"]["content"].strip()
+    print(f"  [planner raw] {raw!r}", flush=True)
+
+    # Same two-stage parse recovery as classify_question
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        match = re.search(r'\{.*\}', raw, re.DOTALL)
+        if match:
+            try:
+                return json.loads(match.group(0))
+            except json.JSONDecodeError:
+                pass
+    return {"plan": [], "_parse_error": raw}
+
+ANSWER_PROMPT = open("prompts/answer_v1.txt").read()
+
+def synthesize_answer(question: str, tool_results: list) -> str:
+    """Produce the final answer from tool results."""
+    if not tool_results:
+        results_text = "(no tools were called)"
+    else:
+        results_text = "\n".join(
+            f"- {r['tool']}({r['args']}) → {r.get('output', 'ERROR: ' + r.get('error', 'unknown'))}"
+            for r in tool_results
+        )
+    prompt = ANSWER_PROMPT.format(question=question, tool_results=results_text)
+    r = ollama.chat(
+        model="llama3.1:8b-instruct-q4_K_M",
+        messages=[{"role": "user", "content": prompt}],
+        options={"temperature": 0.0},
+    )
+    return r["message"]["content"].strip()
+
+
+def ask_with_planner(question: str, max_steps: int = 4, return_trajectory: bool = False):
+    """Two-agent orchestration: planner -> executor -> answer."""
+    trajectory = {
+        "tool_calls": [],
+        "steps": 0,
+        "final_action": None,
+    }
+
+    # Step 1: plan
+    plan_result = plan_tool_calls(question)
+    plan = plan_result.get("plan", [])
+    if "_parse_error" in plan_result:
+        trajectory["final_action"] = "planner_parse_error"
+        answer = f"[planner parse error] {plan_result['_parse_error']}"
+        return (answer, trajectory) if return_trajectory else answer
+
+    # Step 2: execute
+    tool_results = execute_plan(plan)
+    trajectory["tool_calls"] = [r["tool"] for r in tool_results]
+    trajectory["steps"] = len(tool_results) + 1                          # ← +1 for the answer-synthesis call
+
+    # Step 3: synthesize
+    answer = synthesize_answer(question, tool_results)
+    trajectory["final_action"] = "final_answer"
+
+    return (answer, trajectory) if return_trajectory else answer
 QUESTIONS = [
     "What was Apple's total net sales in fiscal 2024?",
     "What does Apple say about supply chain risk?",

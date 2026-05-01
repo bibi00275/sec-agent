@@ -1,0 +1,7 @@
+{"id": "T1", "question": "What fiscal year does this filing cover?", "expected_tools": ["lookup_filing_metadata"], "max_steps": 4, "expected_final_contains": ["2024"]}
+{"id": "T2", "question": "Was this filing filed before October 2024?", "expected_tools": ["lookup_filing_metadata"], "max_steps": 4, "expected_final_contains": ["no", "after"]}
+{"id": "T3", "question": "What was Apple's net sales in 2024?", "expected_tools": ["lookup_financial_value"], "max_steps": 4, "expected_final_contains": ["391,035"]}
+{"id": "T4", "question": "What is Apple's gross margin percentage for fiscal 2023?", "expected_tools": ["lookup_financial_value"], "max_steps": 4, "expected_final_contains": ["44.1"]}
+{"id": "T5", "question": "Who is Apple's CEO?", "expected_tools": [], "max_steps": 4, "expected_final_contains": []}
+{"id": "T6", "question": "What was Apple's R&D expense in 2024?", "expected_tools": [], "max_steps": 4, "expected_final_contains": []}
+{"id": "T7", "question": "What was Apple's net income in the fiscal year this filing covers?", "expected_tools": ["lookup_filing_metadata", "lookup_financial_value"], "max_steps": 4, "expected_final_contains": ["93,736"]}

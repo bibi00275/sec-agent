@@ -159,3 +159,158 @@ The good news: The answer is correct. $93,736 million is right. Fewer tool calls
 The bad news: This is a trap. Imagine I asked you the same question about a 2018 filing for a company called Acme Corp. The model has no training data on Acme Corp. It might confidently invent a year and produce a wrong-but-confident answer, never checking the metadata tool. You'd never know it didn't use the tool unless you read the trace.
 The lesson — bank this one: Tool circumvention. The model uses its own knowledge instead of the tool you gave it when its training data covers the question. The trace looks shorter, the answer might be right, but the system isn't doing what you designed it to do. In production, this fails silently on inputs outside the model's training distribution.
 Takeaway: ✗ Different from prediction. Got the right answer the wrong way. New failure mode you couldn't see with one tool.
+
+================================
+
+T1: "What fiscal year does this filing cover?"
+The model's actions:
+
+Step 0: tried to call lookup_filing_metadata. (Schema bug — your defensive parser fixed it.)
+Got back: fiscal_year: 2024
+Step 1: gave final answer "2024"
+
+Verdicts:
+
+Path PASS: it called the right tool (the metadata one)
+Outcome PASS: the answer contains "2024"
+
+Plain English: Asked correctly, used the right tool, gave the right answer. Boring success. Both graders agree.
+
+T2: "Was this filing filed before October 2024?"
+The model's actions:
+
+Step 0: gave a final answer immediately — "to determine this, we would need to check the filing_date metadata"
+That's it. No tool calls. The model said "you'd need to check the metadata" instead of actually checking the metadata.
+
+Verdicts:
+
+Path FAIL: should have called the metadata tool, didn't
+Outcome FAIL: answer doesn't contain "no" or "after"
+
+Plain English: The model recognized it needed a tool, then gave up and asked you to do the work. Under-action bug — failing to act when it should. Both graders correctly fail it.
+
+T3: "What was Apple's net sales in 2024?"
+The model's actions:
+
+Step 0: called lookup_financial_value(metric="net_sales", year=2024) — perfect args
+Got back: $391,035 million
+Step 1: gave final answer "Apple's net sales in 2024 were $391,035 million"
+
+Verdicts:
+
+Path PASS, Outcome PASS
+
+Plain English: Right tool, right arguments, right answer. Both graders agree. Trustworthy pass.
+
+T4: "What is Apple's gross margin percentage for fiscal 2023?"
+The model's actions:
+
+Step 0: called lookup_financial_value(metric="gross_margin_pct", year=2023) — perfect args
+Got back: 44.1%
+Step 1: gave final answer "Apple's gross margin percentage for fiscal 2023 is 44.1%"
+
+Verdicts:
+
+Path PASS, Outcome PASS
+
+Plain English: Same as T3. Right tool, right args, right answer. Trustworthy pass.
+
+T5: "Who is Apple's CEO?"
+The model's actions:
+
+Step 0: gave final answer immediately — "to answer who Apple's CEO is, I would need to know the name from the SEC filing"
+No tool calls.
+
+Verdicts:
+
+Path PASS: we expected zero tools (neither tool can answer a CEO question), and zero tools were called
+Outcome PASS: nothing required in the answer (empty expected list)
+
+Plain English: Neither of your tools returns names. The model correctly recognized this and refused without calling either. Clean refusal. Both graders agree.
+(Note: this looks similar to T2's behavior at the surface, but it's the opposite case — T5 should refuse, T2 should not refuse. Same observable behavior, opposite correctness.)
+
+T6: "What was Apple's R&D expense in 2024?"
+The model's actions:
+
+Step 0: gave final answer immediately — "the question asks for R&D expense (2024) which is not covered by the available tools. The lookup_financial_value tool only provides net_sales, net_income, and gross_margin_pct"
+No tool calls.
+
+Verdicts:
+
+Path PASS, Outcome PASS
+
+Plain English: Your lookup_financial_value tool description listed exactly which metrics it supports. R&D wasn't in that list. The model read the constraint and refused to call the tool with an unsupported metric. Smart behavior — better to refuse than try and fail. Trustworthy pass.
+
+T7: "What was Apple's net income in the fiscal year this filing covers?"
+This is the interesting one.
+The model's actions:
+
+Step 0: called lookup_financial_value(metric="net_income", year=2024) directly — skipped the metadata lookup
+Got back: $93,736 million
+Step 1: gave final answer "Apple's net income in the fiscal year covered by this filing is $93,736 million"
+
+Verdicts:
+
+Path FAIL: we expected BOTH tools — first metadata to find the year, then financial to look up income. The model only called one.
+Outcome PASS: the answer contains "93,736"
+====
+
+T1: "What fiscal year does this filing cover?"
+The Planner said: "Call lookup_filing_metadata (no arguments)."
+The Executor ran: that tool, got back fiscal_year: 2024.
+The Answer-er produced: an answer containing "2024".
+Path PASS (called the metadata tool — that's what we expected).
+Outcome PASS (answer contains "2024").
+Same as yesterday. Boring success.
+
+T2: "Was this filing filed before October 2024?"
+The Planner said: "Call lookup_filing_metadata."
+The Executor ran: the tool, got back filing_date: 2024-11-01.
+The Answer-er produced: an answer (presumably correct since outcome PASSED).
+Path PASS, Outcome PASS.
+This is huge. Yesterday T2 failed both — the single agent gave up without calling any tool (under-action). Today the planner couldn't give up because its only output is a plan. So it planned the metadata call, the executor ran it, the answer-er wrote the answer.
+The under-action bug is structurally fixed. Not by changing prompts. By splitting roles. The agent that decides what to do can no longer also decide to give up — those are now two different jobs, and the planner only has one of them.
+
+T3: "What was Apple's net sales in 2024?"
+Planner: "Call lookup_financial_value(metric=net_sales, year=2024)."
+Executor: ran it, got $391,035 million.
+Answer-er: wrote answer with $391,035.
+Path PASS, Outcome PASS. Same as yesterday. Easy case.
+
+T4: "What is Apple's gross margin percentage for fiscal 2023?"
+Planner: "Call lookup_financial_value(metric=gross_margin_pct, year=2023)."
+Executor: ran it, got 44.1%.
+Answer-er: wrote answer with 44.1%.
+Path PASS, Outcome PASS. Same as yesterday.
+
+T5: "Who is Apple's CEO?"
+Planner: Empty plan — {"plan": []}. Recognized neither tool can answer this.
+Executor: Nothing to run.
+Answer-er: Got (no tools were called), wrote a refusal-style answer.
+Path PASS, Outcome PASS (no tools expected, no tools called, no required substrings).
+The planner correctly produced an empty plan. This is disciplined inaction — not under-action — because the question genuinely can't be answered by the tools.
+
+T6: "What was Apple's R&D expense in 2024?"
+Planner: Empty plan again. R&D isn't in the tool's enumerated metrics.
+Executor: Nothing to run.
+Answer-er: Wrote a refusal-style answer.
+Path PASS, Outcome PASS. Same shape as T5 — disciplined inaction.
+
+T7: "What was Apple's net income in the fiscal year this filing covers?"
+This is the headline result of Day 18. Read carefully.
+The Planner said:
+json{"plan": [
+{"tool": "lookup_filing_metadata", "args": {}},
+{"tool": "lookup_financial_value", "args": {"metric": "net_income", "year": 2024}}
+]}
+A two-step plan. Metadata first, then financial. Exactly what the architecture was designed to force.
+The Executor ran both:
+
+Step 1: lookup_filing_metadata → fiscal_year: 2024
+Step 2: lookup_financial_value(net_income, 2024) → $93,736 million
+
+The Answer-er wrote an answer with $93,736.
+Path PASS (BOTH expected tools were called — yesterday's circumvention is gone).
+Outcome PASS (answer contains 93,736).
+Yesterday this question was the divergent failure: outcome-pass / path-fail. The single agent skipped metadata and used training data. Today the planner emits a 2-step plan and can't shortcut, because its output format is "list of tool calls" — it has nowhere to put "I already know the answer."
+Tool circumvention is structurally eliminated. Same point as T2: not from better prompting, from architectural separation.

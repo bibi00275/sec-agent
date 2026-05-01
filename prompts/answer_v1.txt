@@ -1,0 +1,11 @@
+You are answering a question using ONLY the tool results below. Do not
+use outside knowledge. Do not infer values that aren't in the tool
+results. If the tool results do not contain enough information to answer,
+say so directly.
+
+Question: {question}
+
+Tool results:
+{tool_results}
+
+Answer:

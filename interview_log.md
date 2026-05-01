@@ -139,3 +139,14 @@ Day 16: added second tool (financial lookup with metric/year args); 5/7 worked,
 exposed two new failure modes — under-action on T2 (refused to call metadata 
 after second tool was added) and tool circumvention on T7 (skipped metadata, 
 used training-data knowledge of fiscal year); tradeoff: tool selection works for unambiguous cases but tool descriptions couple — adding a second tool changed behavior on questions about the first tool.
+
+Day 17: built trajectory eval framework that scores agent path independently from final answer;
+tradeoff: T7 was outcome-pass / path-fail, confirming Day 16's circumvention diagnosis — 
+outcome evals were silently rewarding fraud, trajectory evals catch it, 
+divergent list is the signal to investigate.
+
+Day 18: split single-agent ask_with_tools into planner (qwen2.5, plan-only) + executor (Python)
++ answer-er (llama3.1, synthesis-only); both Week 2 architectural bugs fixed structurally — 
++ T7 circumvention gone (planner can't return an answer-shaped output) and T2 under-action gone (planner can't give up); tradeoff: 5/7 → 7/7 on the existing test set, but the test set is now too easy and tomorrow's job is to design questions that break this architecture.
+
+
