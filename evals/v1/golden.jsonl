@@ -30,7 +30,7 @@
     "id": "q4",
     "question": "Who is Apple's CEO?",
     "expected_contains": [
-      "Tim Cook"
+      "Cook"
     ],
     "filing": "aapl_10k_2024",
     "should_refuse": false

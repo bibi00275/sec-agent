@@ -150,3 +150,21 @@ Day 18: split single-agent ask_with_tools into planner (qwen2.5, plan-only) + ex
 + T7 circumvention gone (planner can't return an answer-shaped output) and T2 under-action gone (planner can't give up); tradeoff: 5/7 → 7/7 on the existing test set, but the test set is now too easy and tomorrow's job is to design questions that break this architecture.
 
 
+Day 19: adversarial eval (6/8) surfaced premise-correction gap in answerer
+(2 false-premise dodges); tradeoff: easy 7/7 was a measurement artifact, real
+adversarial signal is now 6/8 with one architectural bug to fix.
+
+Day 20: one-paragraph prompt change (qa_v3) added premise-correction path;
+adv_07 flipped FAIL→PASS, adv_02 regressed PASS→FAIL; tradeoff: gained
+false-premise correction at the cost of over-triggering on multi-step
+questions that mention filing structure.
+
+If I don't fix the matcher, you risk entering a "Hallucination Loop" in your engineering process. 
+You might make a brilliant prompt change that actually fixes your logic, 
+but because the matcher says "FAIL," you discard the improvement and try something else
+
+Day 21: fixed the matcher to detect premise-correction format and warn when
+tests pass by refusing; same headline score but 3 tests flipped — one hidden
+bug (system over-answers vague questions) and one hidden retrieval miss
+surfaced; tradeoff: spent a day on measurement instead of features, but
+every future change is now a real signal.

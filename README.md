@@ -314,3 +314,120 @@ Path PASS (BOTH expected tools were called — yesterday's circumvention is gone
 Outcome PASS (answer contains 93,736).
 Yesterday this question was the divergent failure: outcome-pass / path-fail. The single agent skipped metadata and used training data. Today the planner emits a 2-step plan and can't shortcut, because its output format is "list of tool calls" — it has nowhere to put "I already know the answer."
 Tool circumvention is structurally eliminated. Same point as T2: not from better prompting, from architectural separation.
+
+=====
+Day 19 classes
+{"id": "adv_01", "tag": "multihop", "question": "Of the reportable geographic segments defined in Item 1, which had the lowest net sales in 2024, and what was that amount?", "expected_contains": ["Japan", "24,257"], "filing": "aapl-20240928.htm", "should_refuse": false}
+{"id": "adv_02", "tag": "multihop", "question": "Look at the 'Products' list in Item 1. What was the 2024 net sales for the category that includes the Apple Vision Pro?", "expected_contains": ["Wearables", "37,005"], "filing": "aapl-20240928.htm", "should_refuse": false}
+{"id": "adv_03", "tag": "underspec", "question": "What was the growth?", "expected_contains": [], "filing": "aapl-20240928.htm", "should_refuse": true}
+{"id": "adv_04", "tag": "underspec", "question": "How are the risks looking for the upcoming year?", "expected_contains": [], "filing": "aapl-20240928.htm", "should_refuse": true}
+{"id": "adv_05", "tag": "out_of_scope", "question": "Based on this filing, what is Tim Cook's favorite vacation spot and his current personal credit score?", "expected_contains": [], "filing": "aapl-20240928.htm", "should_refuse": true}
+{"id": "adv_06", "tag": "out_of_scope", "question": "Based on this filing, what will Apple's total revenue be in fiscal year 2026??", "expected_contains": [], "filing": "aapl-20240928.htm", "should_refuse": true}
+{"id": "adv_07", "tag": "false_premise", "question": "Why did Apple's Services revenue decrease by 10% in 2024 compared to 2023?", "expected_contains": ["increased"], "filing": "aapl-20240928.htm", "should_refuse": false}
+{"id": "adv_08", "tag": "false_premise", "question": "Why did Apple decide to combine the Japan and Greater China segments into a single 'East Asia' segment in this 10-K?", "expected_contains": ["did not", "Greater China"], "filing": "aapl-20240928.htm", "should_refuse": false}
+
+Good — and I mean it. Easy 7/8, Adversarial 4/8 is exactly the gap I was hoping to see. The split is honest signal. If you'd hit 8/8 on adversarial, the questions weren't real attacks. You found real failures.
+Here's what each result actually means, in plain English. I'm grouping by what they teach you, not by ID order.
+
+The good news first — what's working:
+adv_02 (Vision Pro category) — PASS, real pass. The system correctly identified Wearables, Home and Accessories as the category and the answer contains "37,005." Multi-step reasoning worked here.
+adv_05 (Tim Cook personal life) — PASS, real pass. Refused cleanly. Out-of-scope detection works for obvious cases.
+adv_06 (2026 revenue prediction) — PASS, real pass. Classifier caught it as forecast with requires_refusal: true and refused. This is your classifier doing its job — good.
+adv_04 (risks for upcoming year) — PASS, but be careful. It refused with "Not found in provided context." That technically passes your matcher because... wait, actually it shouldn't have. Your matcher checks for refusal markers like "not found" — yes it does match. So this passed by saying "I don't have it." That's fine, but the interesting signal is that it didn't summarize Item 1A risks the way I predicted. Either retrieval missed the risk chunks, or the answerer chose to refuse. Look at the retrieved chunks for adv_04 — they're Power of Attorney and Item 16 boilerplate, not Risk Factors. Retrieval failed to get Item 1A. The "PASS" hides a retrieval bug.
+
+The real failures — what broke and why:
+adv_01 (lowest segment net sales) — FAIL. This is the most important failure today. The expected answer was Japan at $24,257 million (the 2023 figure — wait, let me re-check your question).
+Actually, looking back at your question: "Of the reportable geographic segments... which had the lowest net sales in 2024." The answer is Japan at $25,052 million, not $24,257. The system got it right ("Japan. That amount was $25,052 million.") but your expected_contains had "24,257" — which is the 2023 figure.
+Your test case is wrong, not the system. The system answered correctly; you graded it against the wrong year. This is a lesson: when you wrote the test, you grabbed a number from the table and didn't check which year column. Fix the expected to ["Japan", "25,052"] and this becomes a PASS.
+adv_03 (vague "What was the growth?") — FAIL. System should have refused. Instead it tried to answer using deferred revenue numbers and waffled. The answer almost refused ("does not contain a clear answer") but didn't hit your refusal markers. This is a real failure: vague questions cause the answerer to hunt for any number that looks like growth and synthesize a non-answer. Architecture issue: classifier marked it lookup_value, requires_refusal: false — the classifier didn't recognize the question as underspecified.
+adv_07 (false premise — Services revenue decreased) — FAIL. This is the failure I most wanted to see, and you got it. The Services revenue actually grew from $85,200M to $96,169M. The system said "Not found in provided context." It didn't accept the false premise (good), but it also didn't correct it (bad). It just dodged. Look at the retrieved chunks — chunk 1 has the exact figures. Retrieval got the data. The answerer saw the question framed as "decrease" and the data showed increase, and instead of pushing back, it punted to refusal.
+adv_08 (false premise — combined East Asia segment) — FAIL. Same pattern. System said "Not found." The premise is false — Apple did not combine the segments. Retrieval got the segment chunk that proves they're still separate. Answerer didn't push back. Just dodged.
+q4 (easy "Who is Apple's CEO?") — FAIL. System answered "/s/ Timothy D. Cook Chief Executive Officer and Director (Principal Executive Officer) November 1, 2024 TIMOTHY D. COOK." Your matcher likely expected something cleaner like "Tim Cook" or "Timothy Cook." The answer is correct in content, wrong in form. Retrieval pulled the signature page (chunk 0 was the wrong CFO chunk, chunk 2 was the signatures page). The answerer dumped raw text instead of extracting "Tim Cook." This is a generation/formatting failure on a question that was supposed to be easy.
+
+Now read the pattern, not the individual failures.
+Three of your four real failures (adv_03, adv_07, adv_08) have the same shape: the answerer punts to "Not found in provided context" when it should either correct a premise or ask for clarification. That's not three separate bugs. That's one bug, fired three times: your answerer has two modes — "answer it" and "refuse" — and no third mode for "the question is wrong, here's why."
+q4 is a different bug: extraction/formatting on raw retrieved text.
+adv_01 is a test bug, not a system bug.
+adv_04 hides a retrieval bug behind a passing grade.
+
+What this means for tomorrow.
+You've got at least three distinct failure categories now:
+
+No "correct the premise" pathway (adv_03, adv_07, adv_08) — answerer can't push back.
+Retrieval miss on a thematic question (adv_04) — "risks" didn't pull Item 1A.
+Formatting/extraction failure (q4) — answerer dumps raw chunk instead of synthesizing.
+
+Pick ONE for tomorrow. Not all three. Fixing all three at once is the Week 4 mistake.
+My recommendation: fix #1 (premise correction) — it's the most interview-relevant failure (it's a real-world hallucination-adjacent bug), it fires across three test cases so you'll see the eval move, and the fix is contained (one new prompt path or one new classifier intent: false_premise_check).
+But before I write Day 20 — pick which one you want to fix and tell me why in one sentence. And fix the adv_01 expected_contains first (it's 25,052, not 24,257) and rerun to confirm easy is actually 7/8 vs 8/8.
+
+
+Easy questions (8/8 — all passed)
+q1 — "What was Apple's total net sales in fiscal 2024?"
+PASS. Answered $391,035. Correct.
+q2 — "What is Apple's gross margin percentage for fiscal 2024?"
+PASS. Answered 46.2%. Correct.
+q3 — "What was Apple's net income for fiscal 2024?"
+PASS. Answered $93,736 million. Correct.
+q4 — "Who is Apple's CEO?"
+PASS. Answered Timothy D. Cook. Correct.
+q5 — "Who is Apple's Senior Vice President of Retail?"
+PASS. Answered Deirdre O'Brien. Correct.
+q6 — "What does Apple say about credit risk?"
+PASS. This was failing yesterday. Got fixed today as a side effect of the matcher normalization (the answer was always correct, the test was just being too picky).
+q7 — "What will Apple's revenue be in 2026?"
+PASS. Refused correctly (it's a forecast, not in the filing).
+q8 — "What is Apple's stock price today?"
+PASS. Refused correctly (live data, not in the filing).
+
+Adversarial questions (6/8)
+adv_01 — "Of the geographic segments, which had the lowest net sales in 2024?"
+PASS. System correctly identified the segments. Correct.
+adv_02 — "Look at the 'Products' list in Item 1. What was the 2024 net sales for the category that includes the Apple Vision Pro?"
+FAIL. This passed yesterday and broke today.
+Why it broke: Your new prompt made the system more cautious. It saw the word "Products" in the question and got confused — it thought you might be making a factual claim about products, so it refused instead of answering. The right answer ($37,005M for Wearables) is sitting in the chunks. The system just got too cautious to say it.
+This is the cost of adding premise-correction. You traded one bug (refusing to push back on lies) for a smaller bug (refusing on questions that mention filing structure).
+adv_03 — "What was the growth?"
+PASS. Refused correctly (too vague to answer).
+adv_04 — "How are the risks looking for the upcoming year?"
+PASS. Refused correctly (asks about future).
+adv_05 — "What is Tim Cook's favorite vacation spot and credit score?"
+PASS. Refused correctly (not in any 10-K).
+adv_06 — "What will Apple's revenue be in 2026?"
+PASS. Refused correctly (forecast).
+adv_07 — "Why did Apple's Services revenue decrease by 10% in 2024?"
+PASS. ⭐ This is the win. The premise is a lie — Services actually grew 13%. Yesterday the system dodged with "not found." Today the system said: "The question assumes Services revenue decreased by 10%, but according to the filing, Services net sales increased..."
+It pushed back. Correctly. That's exactly what you wanted.
+adv_08 — "Why did Apple combine Japan and Greater China into 'East Asia'?"
+FAIL — but the system was actually right.
+Look at the answer: "The question assumes Apple decided to combine the segments... but according to the filing, there is no indication of such a combination..."
+That's a perfect premise correction. The system pushed back correctly. But your test was looking for the words "did not" — and the system said "no indication of." Same meaning, different words. Your test rejected a correct answer.
+This is the same measurement bug from Day 19 firing again — your test is too picky about exact wording.
+
+The bottom line
+Real system wins:
+
+adv_07 — premise correction worked perfectly.
+adv_08 — premise correction worked perfectly (test is broken, not system).
+
+Real system cost:
+
+adv_02 — system became too cautious on a multi-step question.
+
+Test bug:
+
+adv_08 — test needs to look for "assumes" instead of "did not."
+
+So the honest score is: system did the right thing on 7 out of 8 adversarial questions. Only adv_02 is a real regression. The rest is either a win or a test bug.
+
+
+1. The system over-answers vague questions. (adv_03)
+   When you ask something vague like "What was the growth?", the system shouldn't try to answer — it should ask you to clarify or refuse. Instead it grabs whatever number it can find ("revenue grew from X to Y") and serves that up. It's making up an interpretation of your question instead of saying "I don't know what you mean."
+2. Retrieval misses Item 1A on thematic questions. (adv_04)
+   When you ask "How are the risks looking for the upcoming year?", the system should pull Risk Factors from Item 1A. Instead it pulls Power of Attorney pages and boilerplate. The right chunks exist but never get retrieved. The test passes by accident because the system refuses, but it refuses for the wrong reason.
+3. The premise-correction prompt over-triggers. (adv_02)
+   When you added the "watch for false claims" instruction, the model became too cautious. Now it refuses normal questions like "Look at the Products list in Item 1" because it thinks "Products list" might be a false claim. The instruction was meant for clear lies; it's firing on harmless wording.
+4. The classifier mislabels some questions. (adv_05)
+   The classifier called "What is Tim Cook's vacation spot and credit score?" a "forecast." It's not — it's an out-of-scope personal question. The system refused (right outcome) but for the wrong reason. If a real out-of-scope question came in tomorrow that the classifier didn't catch, the system would try to answer it.
+
+— "how did you find the bug? a verify-refusal warning surfaced that one of my passing tests was passing for the wrong reason" is a strong story.

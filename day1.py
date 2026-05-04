@@ -34,6 +34,10 @@ EMB_CACHE = "chunk_vecs_v2_section.pkl"                # ← new filename, NOT "
 EXPAND_PROMPT = open("prompts/query_expand_v1.txt").read()
 TOOL_PROMPT = open("prompts/tool_use_v2.txt").read()
 
+
+
+
+
 def section_chunk(text: str, max_chars: int = 2000) -> list[str]:
     parts = ITEM_RE.split(text)                        # ← splits on the heading, keeps the heading as a separate token
     sections = []
@@ -209,12 +213,12 @@ def hybrid_retrieve(query: str, k: int = 3, alpha: float = 0.2):
     top = order[:k]
     return [(i, float(combined[i]), chunks[i]) for i in top]   # ← return shape now exposes id + score
 
-PROMPT = open("prompts/qa_v2.txt").read()
+PROMPT = open("prompts/qa_v3.txt").read()
 
 import json
 import re
 
-CLASSIFY_PROMPT = open("prompts/classify_v2.txt").read()
+CLASSIFY_PROMPT = open("prompts/classify_v3.txt").read()
 
 def classify_question(question: str) -> dict:
     prompt = CLASSIFY_PROMPT.format(question=question)

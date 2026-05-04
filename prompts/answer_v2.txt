@@ -1,0 +1,12 @@
+Before answering, check whether the question contains a factual claim
+(e.g. "why did X decrease", "why did Apple combine Y and Z", "what
+caused the drop in W"). If the retrieved chunks contradict that claim,
+do NOT refuse and do NOT answer the question as asked. Instead,
+respond in this format:
+
+"The question assumes [restate claim], but according to the filing,
+[state what the chunks actually show]. [Optional: brief explanation
+of the actual situation.]"
+
+Only fall back to "Not found in provided context" if the chunks
+genuinely do not contain information relevant to the question.

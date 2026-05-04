@@ -909,3 +909,128 @@ New failure modes: none in this run, BUT the test set is too easy to surface the
 # what surprised me
 I was surprise with no prompt intervention I was able to fix the T7 circumvention by splitting the planner and answerer.
 But I am thinking it is due to the small set of questions 
+
+
+
+## Day 19 — adversarial eval surface
+**What I tried:** wrote 8 adversarial questions across multihop, underspec,
+out-of-scope, false-premise; ran Day 18 system unchanged; then fixed eval matcher
+to normalize commas/dollar-signs.
+**What happened:** Easy 7/8, Adversarial 6/8.
+Real system failures (2):
+- adv_07 (false_premise): Services "decrease 10%" — chunks showed +13% — system
+  dodged with "not found" instead of correcting premise.
+- adv_08 (false_premise): "combined East Asia segment" — chunks showed segments
+  are separate — system dodged with "not found."
+  Measurement issues exposed (not system bugs):
+- q6: matcher too strict on credit-risk answer phrasing.
+- adv_04: "PASS" hides retrieval miss on Item 1A.
+  **Failure category:** refusal-wrong (adv_07, adv_08) — same root cause.
+  **Was this retrieval, generation, or agent-control failure?:** generation.
+  Retrieval pulled the contradicting data; answerer couldn't bridge "question
+  assumes X" + "chunks show ¬X" → "tell user X is wrong."
+  **Hypothesis:** answerer prompt only allows two modes — answer or refuse.
+  Need a third mode: "if question's claim contradicts retrieved chunks, state
+  the contradiction." Test by adding that instruction tomorrow and re-running
+  adv_07/08.
+# what surprised me
+Surprise 1: My eval matcher was lying to me.
+Yesterday I had 4 "system failures." Today, after one small fix to the matcher, three of them turned into PASS. The system was fine all along — my test was wrong. Lesson: when something fails, ask "is the system broken, or is my measurement broken?" before jumping to fix code.
+Surprise 2: The system refuses instead of making things up.
+I expected the system to invent an answer when given a false premise. Like, if I ask "why did revenue drop 10%?" I expected it to confidently make up reasons. Instead it dodged and said "not found." That's actually the opposite problem from what most people predict. The refusal pathway is too aggressive — it kicks in even when the system has the data to correct me.
+
+# Day 20 Run
+Easy questions (8/8 — all passed)
+q1 — "What was Apple's total net sales in fiscal 2024?"
+PASS. Answered $391,035. Correct.
+q2 — "What is Apple's gross margin percentage for fiscal 2024?"
+PASS. Answered 46.2%. Correct.
+q3 — "What was Apple's net income for fiscal 2024?"
+PASS. Answered $93,736 million. Correct.
+q4 — "Who is Apple's CEO?"
+PASS. Answered Timothy D. Cook. Correct.
+q5 — "Who is Apple's Senior Vice President of Retail?"
+PASS. Answered Deirdre O'Brien. Correct.
+q6 — "What does Apple say about credit risk?"
+PASS. This was failing yesterday. Got fixed today as a side effect of the matcher normalization (the answer was always correct, the test was just being too picky).
+q7 — "What will Apple's revenue be in 2026?"
+PASS. Refused correctly (it's a forecast, not in the filing).
+q8 — "What is Apple's stock price today?"
+PASS. Refused correctly (live data, not in the filing).
+
+Adversarial questions (6/8)
+adv_01 — "Of the geographic segments, which had the lowest net sales in 2024?"
+PASS. System correctly identified the segments. Correct.
+adv_02 — "Look at the 'Products' list in Item 1. What was the 2024 net sales for the category that includes the Apple Vision Pro?"
+FAIL. This passed yesterday and broke today.
+Why it broke: Your new prompt made the system more cautious. It saw the word "Products" in the question and got confused — it thought you might be making a factual claim about products, so it refused instead of answering. The right answer ($37,005M for Wearables) is sitting in the chunks. The system just got too cautious to say it.
+This is the cost of adding premise-correction. You traded one bug (refusing to push back on lies) for a smaller bug (refusing on questions that mention filing structure).
+adv_03 — "What was the growth?"
+PASS. Refused correctly (too vague to answer).
+adv_04 — "How are the risks looking for the upcoming year?"
+PASS. Refused correctly (asks about future).
+adv_05 — "What is Tim Cook's favorite vacation spot and credit score?"
+PASS. Refused correctly (not in any 10-K).
+adv_06 — "What will Apple's revenue be in 2026?"
+PASS. Refused correctly (forecast).
+adv_07 — "Why did Apple's Services revenue decrease by 10% in 2024?"
+PASS. ⭐ This is the win. The premise is a lie — Services actually grew 13%. Yesterday the system dodged with "not found." Today the system said: "The question assumes Services revenue decreased by 10%, but according to the filing, Services net sales increased..."
+It pushed back. Correctly. That's exactly what you wanted.
+adv_08 — "Why did Apple combine Japan and Greater China into 'East Asia'?"
+FAIL — but the system was actually right.
+Look at the answer: "The question assumes Apple decided to combine the segments... but according to the filing, there is no indication of such a combination..."
+That's a perfect premise correction. The system pushed back correctly. But your test was looking for the words "did not" — and the system said "no indication of." Same meaning, different words. Your test rejected a correct answer.
+This is the same measurement bug from Day 19 firing again — your test is too picky about exact wording.
+
+## Day 20 — premise-correction pathway in answerer (qa_v2 → qa_v3)
+**What I tried:** added explicit "if question contradicts chunks, state the
+contradiction" instruction to answerer prompt; one-paragraph change, no code
+or architecture changes.
+**What happened:** Easy 7/8 → 8/8. Adversarial 6/8 (same number, different mix).
+Real wins:
+- adv_07: now correctly pushes back on false premise about Services revenue.
+- adv_08: system pushes back correctly; matcher fails to detect it (matcher bug).
+- q6: fixed (likely matcher normalization side-effect from Day 19).
+  Real cost:
+- adv_02 (multihop): regressed PASS → FAIL. Prompt over-triggered; model
+  interpreted "Products" in question as a factual claim and refused instead
+  of answering.
+  **Failure category:** over-trigger on adv_02 — refusal-wrong via premise-check
+  pathway.
+  **Was this retrieval, generation, or agent-control failure?:** generation.
+  The fix worked for clean false-premise cases; over-triggered on questions
+  that mention domain terms ("Products list").
+  **Hypothesis:** premise-check instruction is too eager. Needs tighter trigger
+  condition — only invoke when context EXPLICITLY contradicts a numeric or
+  named claim, not when question references filing structure.
+
+ # What surprise me
+
+I expected to need a Critic agent to fix premise correction. I spent two days framing it as a "generation failure" that needed a structural fix. The actual fix was 8 lines of natural language in a prompt file. Lesson: try the prompt fix before reaching for the architecture fix.
+Most of what looks like an agentic problem is actually a prompting problem in disguise.
+
+The model failed adv_02 because the user said "Products list in Item 1" and the filing technically calls it the "Products" subsection. Same thing in plain English. The model couldn't see past the wording mismatch and refused. I assumed LLMs handle paraphrase well — they don't, especially when you've primed them to scrutinize wording. Adding "check for factual claims" 
+instructions makes the model more brittle to imprecise phrasing, not just to lies.
+
+## Day 21 — matcher rebuild for premise correction + verify-refusal warnings
+**What I tried:** added match_premise_correction flag; added verify-refusal
+warning; no system changes (qa_v3.txt unchanged).
+**What happened:** Easy 7/8, Adversarial 6/8 — same numbers, different truth.
+Measurement-only flips (no system change):
+- adv_08: FAIL → PASS (matcher now detects premise-correction format).
+- adv_03: PASS → FAIL (matcher now catches over-answering on vague questions;
+  yesterday's PASS was a false positive).
+- q6: PASS → FAIL (matcher slightly too strict on this answer; system
+  answer is correct).
+  Verify-refusal warnings flagged:
+- q7, q8, adv_06: refused for the right reason (forecast/non-filing).
+- adv_05: refused, but classifier mislabeled as "forecast" (right outcome,
+  wrong reasoning path).
+- adv_04: PASS by refusing, but retrieval missed Item 1A — confirmed
+  hidden retrieval bug.
+  **Failure category:** measurement only — surfaced 2 hidden system bugs
+  (adv_03 over-answering, adv_04 retrieval miss).
+  **Was this retrieval, generation, or agent-control failure?:** N/A — measurement
+  work surfaced underlying generation bug (adv_03) and retrieval bug (adv_04).
+  **Hypothesis:** going forward, eval signal is meaningfully more honest.
+  Future system changes will produce real deltas instead of measurement noise.

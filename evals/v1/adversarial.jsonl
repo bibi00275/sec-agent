@@ -1,0 +1,10 @@
+[
+  {"id": "adv_01", "tag": "multihop", "question": "Of the reportable geographic segments defined in Item 1, which had the lowest net sales in 2024, and what was that amount?", "expected_contains": ["Japan", "25,052"], "filing": "aapl-20240928.htm", "should_refuse": false},
+  {"id": "adv_02", "tag": "multihop", "question": "Look at the 'Products' list in Item 1. What was the 2024 net sales for the category that includes the Apple Vision Pro?", "expected_contains": ["Wearables", "37,005"], "filing": "aapl-20240928.htm", "should_refuse": false},
+  {"id": "adv_03", "tag": "underspec", "question": "What was the growth?", "expected_contains": [], "filing": "aapl-20240928.htm", "should_refuse": true},
+  {"id": "adv_04", "tag": "underspec", "question": "How are the risks looking for the upcoming year?", "expected_contains": [], "filing": "aapl-20240928.htm", "should_refuse": true},
+  {"id": "adv_05", "tag": "out_of_scope", "question": "Based on this filing, what is Tim Cook's favorite vacation spot and his current personal credit score?", "expected_contains": [], "filing": "aapl-20240928.htm", "should_refuse": true},
+  {"id": "adv_06", "tag": "out_of_scope", "question": "Based on this filing, what will Apple's total revenue be in fiscal year 2026??", "expected_contains": [], "filing": "aapl-20240928.htm", "should_refuse": true},
+  {"id": "adv_07", "tag": "false_premise", "question": "Why did Apple's Services revenue decrease by 10% in 2024 compared to 2023?", "expected_contains": [], "match_premise_correction": true, "filing": "aapl-20240928.htm", "should_refuse": false},
+  {"id": "adv_08", "tag": "false_premise", "question": "Why did Apple decide to combine the Japan and Greater China segments into a single 'East Asia' segment in this 10-K?", "expected_contains": [], "match_premise_correction": true, "filing": "aapl-20240928.htm", "should_refuse": false}
+]

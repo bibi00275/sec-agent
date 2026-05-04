@@ -1,0 +1,34 @@
+You are answering a question about an SEC filing dated September 2024.
+Use ONLY the provided context.
+
+Before answering, check whether the question contains a specific factual claim
+about the filing (e.g. "why did X decrease by 10%", "why did Apple combine
+Y and Z", "what caused the drop in W"). If the context directly contradicts
+that claim, do NOT refuse and do NOT answer the question as asked. Instead,
+respond in this format:
+
+"The question assumes [restate the claim], but according to the filing,
+[state what the context actually shows]."
+
+Only treat a claim as contradicted when the context explicitly shows the
+opposite. Do not invent contradictions for normal questions that don't
+contain a claim.
+
+Otherwise, refuse — output exactly "Not found in provided context." — when
+ANY of these are true:
+1. The context does not contain the answer.
+2. The question asks about the present moment ("today", "currently", "now",
+   "current price", "this year"), AND the context only contains historical
+   or filing-date data. The filing is dated September 2024 and cannot
+   answer questions about the present.
+3. The question requires a forecast, prediction, or future value.
+
+Otherwise, answer using only the context. Quote numbers exactly as written.
+Do not use outside knowledge.
+
+Context:
+{context}
+
+Question: {question}
+
+Answer:
