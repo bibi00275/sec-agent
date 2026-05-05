@@ -1113,3 +1113,43 @@ emperature 0 doesn't mean deterministic. I assumed identical inputs gave identic
 
 # what surprised me
 I was surprised on how retrieval works on multiple runs the flip between PASS and FAIL on the same question
+
+## Day 24 — observability + adv_01 root cause
+**What I tried:** Added per-step JSONL tracer; instrumented hybrid_retrieve and ask();
+ran adv_01 5x; logged retrieval fingerprint + answer hash per run.
+**What happened:** All 5 runs produced identical retrieval fingerprint (0652854c) — retrieval
+is deterministic. All 5 produced different answer hashes; answer length
+varied 95→580 tokens. Verdict was 3 PASS / 2 FAIL. Day 23's "retrieval
+variance" hypothesis is refuted. Root cause is the final ollama.chat call
+in ask() — missing options={"temperature": 0.0}, so the answerer was
+running at Ollama's default 0.8 the whole time.
+**Failure category:** generation (was hypothesized as retrieval on Day 23)
+**Was this retrieval, generation, or agent-control failure?:** generation, confirmed by trace.
+Retrieval and classification both deterministic; only the final answerer drifts.
+**Tool selection or tool execution?:** N/A — adv_01 path doesn't use tools.
+**Planning or execution?:** N/A.
+**Hypothesis:** Adding options={"temperature": 0.0} to ask()'s final ollama.chat will
+collapse answer-hash variance and most flaky cases. Some residual variance
+may remain due to Ollama's non-bit-exact temp-0 behavior; quantify Day 25.
+
+# what surprised me
+"I would have spent two days adding a reranker for a bug that was a missing kwarg
+
+## Day 25 — temp=0 fix on answerer; flakiness 3 → 0
+**What I tried:** Added options={"temperature": 0.0} to ask()'s final ollama.chat.
+Re-ran investigate_adv_01.py (5x) then full stability eval (N=5).
+**What happened:**
+- investigate_adv_01.py: ret_fp identical 5/5 (0652854c), ans_fp identical 5/5
+  (08ad92a5), answer length identical (444), verdict 5/5 PASS.
+- Day 23 baseline: 13 stable-pass, 0 stable-fail, 3 flaky (q6 2/5, adv_01 4/5,
+  adv_02 3/5).
+- Day 25 result:   16 stable-pass, 0 stable-fail, 0 flaky.
+- Delta: all 3 flaky cases moved to stable-pass. No regressions. No residual
+  flakiness — Ollama at temp=0 is bit-exact deterministic for this workload,
+  contrary to my Day 24 hedge.
+  **Failure category:** correct (was: generation, fixed)
+  **Was this retrieval, generation, or agent-control failure?:** generation. Confirmed
+  closed.
+  **Hypothesis:** Closed. Day 24's diagnosis was correct; Day 25's fix landed cleanly.
+  Next failure mode to investigate is no longer flakiness — system is now
+  deterministic at the eval level.

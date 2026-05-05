@@ -178,3 +178,8 @@ multiple runs before trusting them.
 
 Day 23: replaced single-run eval with N=5 stability report because Day 22 surfaced temperature-0 non-determinism; 
 tradeoff: eval runs are now 5x slower (~N min) and I can no longer claim a single "pass rate" — only per-case stability profiles.
+
+Day 24: instrumented retrieval + answer hashing because Day 23 hypothesis needed mechanism evidence;
+tradeoff: refuted my own hypothesis and found the real bug was a missing temperature=0 on the answerer, not retrieval — fix deferred to Day 25 to keep the eval delta clean.
+
+Day 25: pinned temperature=0 on the answerer; flakiness collapsed from 3 cases to 0 with no regressions; tradeoff: none — single-line config fix that closed Day 23's hypothesis loop.

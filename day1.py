@@ -5,7 +5,7 @@ from bs4 import BeautifulSoup
 import re
 from rank_bm25 import BM25Okapi
 import numpy as np
-
+from tracer import Tracer, fingerprint          # ← add fingerprint
 UA ={"User-Agent": "YourName your@email.com"}
 FILINGS_URL = "https://www.sec.gov/Archives/edgar/data/320193/000032019324000123/aapl-20240928.htm"
 #1 Featch & Strip the HTML
@@ -196,22 +196,7 @@ def should_expand(question: str) -> bool:
 # that's now blocking observability. We also break ties on chunk_id so argsort's
 # behavior on equal scores stops mattering.
 
-def hybrid_retrieve(query: str, k: int = 3, alpha: float = 0.2):
-    q_emb = embed(query)
-    dense_scores = np.array([cosine(q_emb, e) for e in chunk_vecs])
-    lex_scores = bm25.get_scores(simple_tokenize(query))
 
-    def norm(x):
-        if x.max() == x.min(): return np.zeros_like(x)
-        return (x - x.min()) / (x.max() - x.min())
-
-    combined = alpha * norm(dense_scores) + (1 - alpha) * norm(lex_scores)
-
-    # Sort by (-score, chunk_id) so ties break deterministically on chunk_id
-    order = sorted(range(len(combined)),
-                   key=lambda i: (-combined[i], i))         # ← deterministic tiebreak: index ASC on score ties
-    top = order[:k]
-    return [(i, float(combined[i]), chunks[i]) for i in top]   # ← return shape now exposes id + score
 
 PROMPT = open("prompts/qa_v3.txt").read()
 
@@ -249,36 +234,82 @@ def classify_question(question: str) -> dict:
 
 
 
+def hybrid_retrieve(query: str, k: int = 3, alpha: float = 0.2, tracer=None):
+    q_emb = embed(query)
+    dense_scores = np.array([cosine(q_emb, e) for e in chunk_vecs])
+    lex_scores = bm25.get_scores(simple_tokenize(query))
 
+    def norm(x):
+        if x.max() == x.min(): return np.zeros_like(x)
+        return (x - x.min()) / (x.max() - x.min())
+
+    combined = alpha * norm(dense_scores) + (1 - alpha) * norm(lex_scores)
+    order = sorted(range(len(combined)), key=lambda i: (-combined[i], i))
+    top = order[:k]
+    hits = [(i, float(combined[i]), chunks[i]) for i in top]
+
+    if tracer is not None:
+        chunk_ids = [cid for cid, _, _ in hits]
+        tracer.log(
+            "retrieval",                                        # ← correct step name
+            query=query,
+            chunk_ids=chunk_ids,
+            chunk_fingerprint=fingerprint(chunk_ids),           # ← THE line. This is what made today's first experiment work.
+            scores=[round(s, 4) for _, s, _ in hits],
+            next_3_ids=[order[i] for i in range(k, min(k+3, len(order)))],
+            next_3_scores=[round(float(combined[order[i]]), 4) for i in range(k, min(k+3, len(order)))],
+        )
+
+    return hits
 
 
 REFUSAL_TEXT = "Not found in provided context."   # ← put this near the top of day1.py, not inside ask()
 
-def ask(question: str, verbose: bool = True) -> str:    # ← new flag, default preserves current behavior
+def ask(question: str, verbose: bool = True, tracer=None) -> str:
+    if tracer is not None:
+        tracer.log("ask_start", question=question)
+
     classification = classify_question(question)
     if verbose:
         print(f"  [ask debug] question={question!r}")
         print(f"  [ask debug] classification={classification}")
+
     if classification.get("requires_refusal") is True:
         if verbose:
             print(f"  [classifier refused] {classification}")
             print(f"  [ask debug] returning REFUSAL_TEXT")
+        if tracer is not None:
+            tracer.log("refused_by_classifier", classification=classification)   # ← refusal path still gets traced
         return REFUSAL_TEXT
 
     expanded = expand_query(question) if should_expand(question) else question
-    hits = hybrid_retrieve(expanded)
+    hits = hybrid_retrieve(expanded, tracer=tracer)                              # ← the line that makes today's experiment work
+
     if verbose:
         print("\n--- RETRIEVED CHUNKS ---")
         for rank, (cid, score, text) in enumerate(hits):
             print(f"[chunk {rank}] id={cid} score={score:.4f}")
             print(text)
             print("-" * 50)
-    ctx = "\n\n".join(text for _, _, text in hits)
 
+    ctx = "\n\n".join(text for _, _, text in hits)
     prompt = PROMPT.format(context=ctx, question=question)
-    r = ollama.chat(model="llama3.1:8b-instruct-q4_K_M",
-                    messages=[{"role": "user", "content": prompt}])
-    return r["message"]["content"]
+    r = ollama.chat(
+         model="llama3.1:8b-instruct-q4_K_M",
+         messages=[{"role": "user", "content": prompt}],
+        options={"temperature": 0.0},                      # ← THE fix. The whole Day 25 lives in this line.
+    )
+    answer = r["message"]["content"]
+
+    if tracer is not None:
+        tracer.log(
+            "llm_answer",
+            answer_hash=fingerprint([answer]),     # ← reuse the same fingerprint helper
+            answer_len=len(answer),
+            answer_preview=answer[:200],
+        )                       # ← truncate; full answer isn't the experiment
+
+    return answer
 
 def ask_with_tools(question: str, max_steps: int = 4, return_trajectory: bool = False):
     """Run a tool-use loop. If return_trajectory=True, return (answer, trajectory_dict)."""

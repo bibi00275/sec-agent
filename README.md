@@ -461,3 +461,13 @@ adv_02 — the "Products list in Item 1" case from Day 22 — retrieval + classi
 What do all three have in common? They're the retrieval-heavy cases. Your stable-pass cases are mostly things where the answer is a single fact the model either grabs or doesn't (CEO name, net sales number, refusals on bad-premise questions). The flaky ones all depend on whether the right chunks came back from your retriever, and your retriever is non-deterministic on borderline queries — different chunks ranked differently across runs → different context → different answer.
 This is a stronger signal than Day 22 gave you. Day 22 said "the classifier is non-deterministic on adv_02." Day 23 says "retrieval is non-deterministic on borderline queries across the board, and that's the dominant source of eval noise."
 That's a real finding. Write it down before you forget it.
+
+Day 23's hypothesis is wrong. Retrieval is deterministic — same fingerprint, same order, all five runs. The chunks adv_01 sees are identical every time. The variance is somewhere else.
+This is exactly the experiment paying off. If you'd skipped Day 24 and gone straight to "fix retrieval determinism" on Day 25, you would have added a reranker, watched the eval number not move, and spent two days confused. You just saved those two days.
+Now the question reshapes: if retrieval is stable, why does adv_01 pass 4/5 times and fail 1/5? Three candidates, in order of likelihood:
+
+Generation variance. Even at temperature 0, llama.cpp / Ollama isn't bit-exact deterministic across runs — KV cache state, batch boundaries, and floating-point non-associativity mean the same prompt can produce slightly different tokens. This is a well-known footgun.
+Classifier variance. Same root cause but in the qwen call. Your trace shows the classifier output was identical across runs ('{"intent": "lookup_value", "requires_refusal": false}') — so it's not this for adv_01.
+Grader variance. The grader's normalize + substring match might be flipping on whitespace or formatting differences in the answer text, even when the answer is semantically the same.
+
+Three eval cases were flaky — passing some runs, failing others, with retrieval and chunking unchanged. I'd hypothesized retrieval non-determinism. To verify, I built per-step JSONL tracing that hashed the retrieved chunk IDs and the final answer text on every run. The traces showed retrieval was bit-identical across five runs but the answer hashes were all different — and the lengths varied by 6x. The cause was a missing temperature=0 on one of four LLM call sites; the answerer had been silently running at Ollama's default 0.8. Adding it took flakiness from 3 cases to 0 with no regressions, and the same trace infrastructure now logs every production run.
