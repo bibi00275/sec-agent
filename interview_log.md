@@ -168,3 +168,13 @@ tests pass by refusing; same headline score but 3 tests flipped — one hidden
 bug (system over-answers vague questions) and one hidden retrieval miss
 surfaced; tradeoff: spent a day on measurement instead of features, but
 every future change is now a real signal.
+
+
+
+Day 22: added "underspecified" intent to classifier (v2→v3); adv_03 flipped
+FAIL→PASS as targeted; tradeoff: discovered that qwen2.5:7b at temperature 0
+is non-deterministic on borderline classifications, so eval scores need
+multiple runs before trusting them.
+
+Day 23: replaced single-run eval with N=5 stability report because Day 22 surfaced temperature-0 non-determinism; 
+tradeoff: eval runs are now 5x slower (~N min) and I can no longer claim a single "pass rate" — only per-case stability profiles.

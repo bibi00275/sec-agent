@@ -431,3 +431,33 @@ So the honest score is: system did the right thing on 7 out of 8 adversarial que
    The classifier called "What is Tim Cook's vacation spot and credit score?" a "forecast." It's not — it's an out-of-scope personal question. The system refused (right outcome) but for the wrong reason. If a real out-of-scope question came in tomorrow that the classifier didn't catch, the system would try to answer it.
 
 — "how did you find the bug? a verify-refusal warning surfaced that one of my passing tests was passing for the wrong reason" is a strong story.
+
+
+The honest scoreboard (verified)
+Real wins, fully traceable:
+
+adv_01 — system answered cleanly: "Japan had the lowest net sales in 2024. The amount is $25,052 million." Yesterday I worried this was a regression from verbose prompts. It wasn't. The model produced a clean answer and the matcher caught it. ✓
+adv_02 — verbose answer but it does contain both "Wearables" and "37,005" — passes legitimately. The classifier did NOT label it as underspecified this time ({'intent': 'lookup_value', 'requires_refusal': False}). The earlier run where it got flagged was inconsistent — likely because the qwen model is non-deterministic on borderline cases even at temperature 0. This is a real fragility worth noting. ✓
+adv_03 — underspecified flagged correctly, refused. ✓ (target win)
+adv_07/08 — premise correction working. ✓
+q1–q5 — all clean lookups. ✓
+q6 — system answered well, matcher accepted. ✓ Yesterday's "FAIL" was wording-sensitivity in the matcher; today the answer happened to land in matcher's range.
+q7/q8 — refused correctly via classifier. ✓
+
+
+README — Known Dirty Things:
+
+Remove: "system over-answers vague questions" (fixed by classifier)
+Add: "classifier non-determinism on borderline questions even at T=0 — eval results have measurement noise"
+Keep: adv_04 retrieval miss on Item 1A (still hidden by refusal)
+Keep: adv_05 classifier mislabel of personal questions as "forecast"
+
+Now look at the flaky cases as a group:
+
+q6 — "what does Apple say about credit risk" — open-ended, retrieval-driven, no specific number to find
+adv_01 — geographic segments in Item 1 — retrieval-driven, requires hitting a specific section
+adv_02 — the "Products list in Item 1" case from Day 22 — retrieval + classification borderline
+
+What do all three have in common? They're the retrieval-heavy cases. Your stable-pass cases are mostly things where the answer is a single fact the model either grabs or doesn't (CEO name, net sales number, refusals on bad-premise questions). The flaky ones all depend on whether the right chunks came back from your retriever, and your retriever is non-deterministic on borderline queries — different chunks ranked differently across runs → different context → different answer.
+This is a stronger signal than Day 22 gave you. Day 22 said "the classifier is non-deterministic on adv_02." Day 23 says "retrieval is non-deterministic on borderline queries across the board, and that's the dominant source of eval noise."
+That's a real finding. Write it down before you forget it.

@@ -1034,3 +1034,82 @@ Measurement-only flips (no system change):
   work surfaced underlying generation bug (adv_03) and retrieval bug (adv_04).
   **Hypothesis:** going forward, eval signal is meaningfully more honest.
   Future system changes will produce real deltas instead of measurement noise.
+
+## Day 22 — classifier v2 → v3 with underspecified intent
+**What I tried:** added "underspecified" intent + examples to classifier prompt
+to short-circuit vague questions before retrieval.
+**What happened:** Easy 8/8, Adversarial 8/8 (headline). Real interpretation:
+Real wins (4):
+- adv_03: now correctly flagged underspecified, refuses cleanly. Target hit.
+- adv_07/08: premise correction unchanged, still passing.
+- q1-q5: no regression.
+  Suspicious passes that need investigation:
+- adv_02: verdict PASS but answer text doesn't contain "37,005" — possible
+  matcher bug or log artifact. Investigate before trusting.
+- q6: classifier said requires_refusal=true, but answer is a real credit
+  risk summary not the refusal text — flow inconsistency, investigate.
+- adv_04: still passes by refusing (now via underspecified instead of
+  forecast). Hidden retrieval bug unchanged.
+- adv_05: classifier mislabel persists (Tim Cook flagged as "forecast").
+  **Failure category:** target bug fixed; new measurement issues exposed (adv_02, q6).
+  **Was this retrieval, generation, or agent-control failure?:** classification
+  fix worked. The two suspicious passes are likely instrumentation bugs, not
+  system bugs. Need investigation tomorrow.
+  **Hypothesis:** classifier-level refusal is the right place for vague questions.
+  8/8 headline is misleading until adv_02 and q6 are explained.
+
+# what surprised me
+
+The classifier fix worked cleanly on adv_03 — abstract instruction + 2 examples
+was enough, no retries needed. What I didn't expect: the same prompt change
+fired on adv_02 ("Look at the 'Products' list") and on adv_04, both of which
+got flagged underspecified. adv_04 still works by accident. adv_02's verdict
+contradicts its answer text — I might be looking at a stale log or a matcher
+bug. The lesson is: when a number jumps from 6/8 to 8/8 without me touching
+half the test cases, suspect instrumentation before declaring victory.
+
+## Day 22 — classifier v2 → v3 with underspecified intent
+**What I tried:** added "underspecified" intent + 2 examples to classifier
+prompt to short-circuit vague questions before retrieval. Added [eval debug]
+print of the actual ask() return value to fix instrumentation noise.
+**What happened:** Easy 8/8, Adversarial 8/8 (verified honest this time).
+- adv_03 (target): now classifies as "underspecified", refuses. WIN.
+- adv_02: classifier flip-flopped between runs (sometimes "underspecified",
+  sometimes "lookup_value") even at temperature 0 — qwen2.5:7b non-determinism
+  on borderline cases. Both outcomes happened to PASS this run, but
+  measurement is noisier than I thought.
+- q1-q5: no regression on lookups.
+- adv_07/08: premise correction unchanged, still passing.
+- adv_04: still passes via refusal (forecast label) — Item 1A retrieval
+  bug still hidden, NOT fixed today.
+  **Failure category:** classification — fix worked at target.
+  **Was this retrieval, generation, or agent-control failure?:** classification
+  worked as designed. The instrumentation problem was the bigger lesson —
+  without [eval debug], I would have closed the day on a false signal twice.
+  **Hypothesis:** classifier-level refusal is the right place for vague questions
+  when the classifier reliably catches them. qwen2.5:7b at temperature 0 is
+  "mostly deterministic" not "actually deterministic" — eval results need
+  multiple runs to be trusted.
+ # what surprised me
+emperature 0 doesn't mean deterministic. I assumed identical inputs gave identical outputs. They don't. I now know to run evals multiple times before believing a number
+
+ # Day 23 — stability analysis of the eval set
+## Day 23 — eval stability baseline (N=5)
+**What I tried:** Eval Stability Test
+**What happened:**
+- Stable pass: 13
+- Stable fail: none
+- Flaky: q6 (2/5), adv_01 (4/5), adv_02 (3/5)
+- q6 failure mode when it failed: open ended question which is retrieval driven and the retrieved chunks can vary slightly between runs, causing the answer to sometimes be a PASS and sometimes be a FAIL depending on how the retrieved chunks are interpreted by the answerer.
+- Did the flaky cases share anything? Yes, they are all questions that are either open-ended (q6) or require some interpretation of the retrieved data (adv_01, adv_02). This suggests that the flakiness may be due to variability in the retrieval step, which can lead to different answer generation outcomes.
+- adv_02 from Day 22: predicted flaky, got 3/5 — prediction confirmed.
+- Surprises: the degree of flakiness in adv_01 was higher than expected (4/5), which may indicate that the retrieval variability has a significant impact on the answer generation for this question. Additionally, q6's flakiness confirms that open-ended questions that rely heavily on retrieval can be unstable, which is an important insight for designing future evals.
+- Runtime: ADVERSARIAL summary: 6 stable-pass, 0 stable-fail, 2 flaky
+  flaky ids: ['adv_01', 'adv_02']
+- EASY summary: 7 stable-pass, 0 stable-fail, 1 flaky
+  **Failure category:** infra (measurement)
+  **Was this retrieval, generation, or agent-control failure?:** retrieval-driven generation failure, but the
+  **Hypothesis:**  The flakiness is downstream of retrieval variance, not generation variance — the LLM is doing roughly the same thing each time, but the chunks it sees aren't the same. That's a retrieval determinism problem, not a generation problem. Fix candidates for later: stable retriever ordering, retrieval re-ranking, or larger top-k to reduce the borderline cases.
+
+# what surprised me
+I was surprised on how retrieval works on multiple runs the flip between PASS and FAIL on the same question

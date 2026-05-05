@@ -254,19 +254,25 @@ def classify_question(question: str) -> dict:
 
 REFUSAL_TEXT = "Not found in provided context."   # ← put this near the top of day1.py, not inside ask()
 
-def ask(question: str) -> str:
-    classification = classify_question(question)                       # ← new
-    if classification.get("requires_refusal") is True:                 # ← new
-        print(f"  [classifier refused] {classification}")              # ← new
-        return REFUSAL_TEXT                                            # ← new
+def ask(question: str, verbose: bool = True) -> str:    # ← new flag, default preserves current behavior
+    classification = classify_question(question)
+    if verbose:
+        print(f"  [ask debug] question={question!r}")
+        print(f"  [ask debug] classification={classification}")
+    if classification.get("requires_refusal") is True:
+        if verbose:
+            print(f"  [classifier refused] {classification}")
+            print(f"  [ask debug] returning REFUSAL_TEXT")
+        return REFUSAL_TEXT
 
     expanded = expand_query(question) if should_expand(question) else question
     hits = hybrid_retrieve(expanded)
-    print("\n--- RETRIEVED CHUNKS ---")
-    for rank, (cid, score, text) in enumerate(hits):
-        print(f"[chunk {rank}] id={cid} score={score:.4f}")
-        print(text)
-        print("-" * 50)
+    if verbose:
+        print("\n--- RETRIEVED CHUNKS ---")
+        for rank, (cid, score, text) in enumerate(hits):
+            print(f"[chunk {rank}] id={cid} score={score:.4f}")
+            print(text)
+            print("-" * 50)
     ctx = "\n\n".join(text for _, _, text in hits)
 
     prompt = PROMPT.format(context=ctx, question=question)
