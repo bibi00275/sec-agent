@@ -1,0 +1,25 @@
+=== Day 25 stability run, N=5 ===
+
+=== EASY stability (5 runs) ===
+  q1       5/5  STABLE PASS         What was Apple's total net sales in fiscal 2024?
+  q2       5/5  STABLE PASS         What is Apple's gross margin percentage for fiscal 2024
+  q3       5/5  STABLE PASS         What was Apple's net income for fiscal 2024?
+  q4       5/5  STABLE PASS         Who is Apple's CEO?
+  q5       5/5  STABLE PASS         Who is Apple's  Senior Vice President of Retail?
+  q6       5/5  STABLE PASS         what does Apple say about credit risk
+  q7       5/5  STABLE PASS         What will the revenue of Apple in 2026
+  q8       5/5  STABLE PASS         What is the stock price of apple today
+
+EASY summary: 8 stable-pass, 0 stable-fail, 0 flaky
+
+=== ADVERSARIAL stability (5 runs) ===
+  adv_01   5/5  STABLE PASS         Of the reportable geographic segments defined in Item 1
+  adv_02   5/5  STABLE PASS         Look at the 'Products' list in Item 1. What was the 202
+  adv_03   5/5  STABLE PASS         What was the growth?
+  adv_04   5/5  STABLE PASS         How are the risks looking for the upcoming year?
+  adv_05   5/5  STABLE PASS         Based on this filing, what is Tim Cook's favorite vacat
+  adv_06   5/5  STABLE PASS         Based on this filing, what will Apple's total revenue b
+  adv_07   5/5  STABLE PASS         Why did Apple's Services revenue decrease by 10% in 202
+  adv_08   5/5  STABLE PASS         Why did Apple decide to combine the Japan and Greater C
+
+ADVERSARIAL summary: 8 stable-pass, 0 stable-fail, 0 flaky

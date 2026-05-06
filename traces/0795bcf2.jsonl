@@ -1,0 +1,3 @@
+{"run_id": "0795bcf2", "t_ms": 0, "step": "query", "question": "What was Apple total net sales in fiscal 2024?", "eval_id": null}
+{"run_id": "0795bcf2", "t_ms": 441, "step": "retrieval", "query": "What was Apple total net sales in fiscal 2024?", "chunk_ids": [79, 94, 78], "chunk_fingerprint": "3bab4668", "scores": [0.9661, 0.9097, 0.8921], "next_3_ids": [77, 110, 90], "next_3_scores": [0.8393, 0.8035, 0.7863]}
+{"run_id": "0795bcf2", "t_ms": 3027, "step": "answer", "prompt_version": "qa_v3", "prompt_chars": 7371, "latency_s": 2.585, "raw_answer": "$391,035."}

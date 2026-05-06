@@ -1,0 +1,46 @@
+{
+  "results": [
+    {
+      "id": "T1",
+      "path_pass": true,
+      "outcome_pass": true
+    },
+    {
+      "id": "T2",
+      "path_pass": true,
+      "outcome_pass": true
+    },
+    {
+      "id": "T3",
+      "path_pass": true,
+      "outcome_pass": true
+    },
+    {
+      "id": "T4",
+      "path_pass": true,
+      "outcome_pass": true
+    },
+    {
+      "id": "T5",
+      "path_pass": true,
+      "outcome_pass": true
+    },
+    {
+      "id": "T6",
+      "path_pass": true,
+      "outcome_pass": true
+    },
+    {
+      "id": "T7",
+      "path_pass": true,
+      "outcome_pass": true
+    }
+  ],
+  "summary": {
+    "path": 7,
+    "outcome": 7,
+    "both": 7,
+    "n": 7
+  },
+  "divergent": []
+}
