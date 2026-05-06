@@ -2,10 +2,12 @@ import os
 import pickle
 import re,requests, numpy as np,ollama
 from bs4 import BeautifulSoup
+import uuid
 import re
 from rank_bm25 import BM25Okapi
 import numpy as np
-from tracer import Tracer, fingerprint          # ← add fingerprint
+from tracer import Tracer, fingerprint
+import time # ← add fingerprint
 UA ={"User-Agent": "YourName your@email.com"}
 FILINGS_URL = "https://www.sec.gov/Archives/edgar/data/320193/000032019324000123/aapl-20240928.htm"
 #1 Featch & Strip the HTML
@@ -265,50 +267,39 @@ def hybrid_retrieve(query: str, k: int = 3, alpha: float = 0.2, tracer=None):
 
 REFUSAL_TEXT = "Not found in provided context."   # ← put this near the top of day1.py, not inside ask()
 
-def ask(question: str, verbose: bool = True, tracer=None) -> str:
-    if tracer is not None:
-        tracer.log("ask_start", question=question)
+# Why this looks like this: we instantiate the tracer at the top of ask() and
+# pass it down only where we need to record. We resist the urge to make
+# tracing "automatic" via decorators — explicit `with tracer.step(...)` blocks
+# are easier to read and easier to remove if this design is wrong.
+# Why this looks like this: we use the tracer you already have (log-style,
+# JSONL). hybrid_retrieve already logs the retrieval step internally — we
+# don't double-log it. We add one more log() call for the answer step so a
+# single trace file shows retrieve + answer side-by-side.
 
-    classification = classify_question(question)
-    if verbose:
-        print(f"  [ask debug] question={question!r}")
-        print(f"  [ask debug] classification={classification}")
+def ask(question: str, eval_id: str | None = None):
+    run_id = uuid.uuid4().hex[:8]
+    tracer = Tracer(run_id)
+    tracer.log("query", question=question, eval_id=eval_id)        # ← top-level run metadata as its own event
 
-    if classification.get("requires_refusal") is True:
-        if verbose:
-            print(f"  [classifier refused] {classification}")
-            print(f"  [ask debug] returning REFUSAL_TEXT")
-        if tracer is not None:
-            tracer.log("refused_by_classifier", classification=classification)   # ← refusal path still gets traced
-        return REFUSAL_TEXT
+    hits = hybrid_retrieve(question, k=3, tracer=tracer)            # ← retrieval logging happens INSIDE hybrid_retrieve already
+    context = "\n\n".join(text for _, _, text in hits)              # ← unpack (id, score, text) tuples — your real shape
 
-    expanded = expand_query(question) if should_expand(question) else question
-    hits = hybrid_retrieve(expanded, tracer=tracer)                              # ← the line that makes today's experiment work
-
-    if verbose:
-        print("\n--- RETRIEVED CHUNKS ---")
-        for rank, (cid, score, text) in enumerate(hits):
-            print(f"[chunk {rank}] id={cid} score={score:.4f}")
-            print(text)
-            print("-" * 50)
-
-    ctx = "\n\n".join(text for _, _, text in hits)
-    prompt = PROMPT.format(context=ctx, question=question)
+    prompt = PROMPT.format(context=context, question=question)
+    t0 = time.time()
     r = ollama.chat(
-         model="llama3.1:8b-instruct-q4_K_M",
-         messages=[{"role": "user", "content": prompt}],
-        options={"temperature": 0.0},                      # ← THE fix. The whole Day 25 lives in this line.
+        model="llama3.1:8b-instruct-q4_K_M",
+        messages=[{"role": "user", "content": prompt}],
+        options={"temperature": 0.0},                               # ← Day 25 fix; do NOT remove
     )
-    answer = r["message"]["content"]
+    answer = r["message"]["content"].strip()
 
-    if tracer is not None:
-        tracer.log(
-            "llm_answer",
-            answer_hash=fingerprint([answer]),     # ← reuse the same fingerprint helper
-            answer_len=len(answer),
-            answer_preview=answer[:200],
-        )                       # ← truncate; full answer isn't the experiment
-
+    tracer.log(
+        "answer",
+        prompt_version="qa_v3",                                     # ← matches the file you load: prompts/qa_v3.txt
+        prompt_chars=len(prompt),
+        latency_s=round(time.time() - t0, 3),
+        raw_answer=answer,
+    )
     return answer
 
 def ask_with_tools(question: str, max_steps: int = 4, return_trajectory: bool = False):

@@ -1153,3 +1153,67 @@ Re-ran investigate_adv_01.py (5x) then full stability eval (N=5).
   **Hypothesis:** Closed. Day 24's diagnosis was correct; Day 25's fix landed cleanly.
   Next failure mode to investigate is no longer flakiness — system is now
   deterministic at the eval level.
+ # what surprised me 
+
+I was surprised that adding the temperature=0 kwarg to the final answerer call fixed all the flakiness. I expected some residual variance due to Ollama's non-bit-exact temp-0 behavior, but it seems that for this workload, Ollama is actually deterministic at temp=0. This means we can trust eval results much more confidently now, without needing multiple runs to confirm stability.
+
+## Day 26 — per-query JSONL tracing wired into ask()
+**What I tried:** Replaced the spec ask() with one that uses the existing
+log()-style Tracer. hybrid_retrieve already logs retrieval; added a single
+log("answer", ...) for the generation step. Ran one query end-to-end.
+**What happened:** Trace file 3548348d.jsonl produced. Three events: query,
+retrieval (t_ms=54), answer (t_ms=260332). Retrieval took 54ms. Answer step
+took ~260s — far slower than the ~10–15s I'd been seeing during the Day 25
+stability eval. Final answer correct ("$391,035").
+**Failure category:** correct (answer right; instrumentation revealed
+unexpected latency).
+**Was this retrieval, generation, or agent-control failure?:** N/A —
+instrumentation day. But the trace points to generation as the latency
+sink (98%+ of wall time).
+**Hypothesis:** First-call cold-load of llama3.1:8b after Ollama evicted it
+from RAM. Need to re-run the full 16-case stability eval to see if this is
+a one-off cold start or a persistent regression. If it persists, Day 27
+investigates; if it's just cold-start, the trace did its job by making
+"feels slow" into a number.
+
+# what surprised me
+I was surprised by the huge latency on the answer step — 260 seconds is much higher than the 10–15 seconds I was seeing during the Day 25 stability eval. This suggests that the model was likely evicted from RAM and had to be cold-loaded, which can cause a significant increase in latency. The trace was invaluable in quantifying this issue and confirming that the latency is indeed coming from the generation step, not retrieval. The next step is to see if this is a one-off cold start or if it persists across multiple runs. 
+
+
+## Day 27 — established a real latency baseline
+**What I tried:** Admitted Day 25's "10-15s" was a vibes-average, not a
+measurement. Ran the same query 16x in a row with tracing on.
+**What happened:**
+Run 1: 261.3s (cold start)
+Runs 2-16: median 1.7s, min 1.5s, max 4.9s
+Retrieval: stable 80-100ms throughout
+My Day 25 baseline was wrong by ~10x in the pessimistic direction.
+**Failure category:** correct — but exposed a methodology failure on Day 25.
+**Was this retrieval, generation, or agent-control failure?:** Methodology.
+The system is fine. My baseline wasn't.
+**Hypothesis:** Cold start is a deployment characteristic, not a bug.
+First query of any session pays ~260s on this hardware; subsequent
+queries are ~1.7s. This needs to be a UX decision in Week 4, not a
+code fix.
+
+# what surprised me
+I was surprised by how much the latency dropped after the first run. The first query took 261.3 seconds, which is consistent with a cold start where the model is loaded into RAM
+
+## Day 28 — full trajectory eval, end of arc
+**What I tried:** Added run-ID artifact to trajectory harness, ran the
+full 7-trajectory suite twice, saved JSON to evals/v1/runs/.
+**What happened:** Run 1 and Run 2 identical: 7/7 path, 7/7 outcome,
+0 divergent, 0 cap hits. T7 used 3/4 steps with a compositional
+two-tool plan. T5 and T6 passed vacuously — empty expected_tools and
+empty expected_final_contains means the outcome check is all([])=True.
+The honest scorecard is 5/5 on tests with real expectations plus 2/2
+on under-specified refusal-shaped entries.
+**Failure category:** correct on the 5 real cases; methodology gap on
+the 2 vacuous ones.
+**Was this retrieval, generation, or agent-control failure?:** N/A —
+this run had none. The methodology gap is eval-design, not system.
+**Hypothesis:** A 7/7 with a 7-case suite is not a system signal, it's
+a suite-size signal. The next-week-if-it-existed move is expanding
+the suite to ~20 trajectories with at least 5 designed to fail
+(adversarial year, missing metric, two-filing comparison) so the
+pass rate has somewhere to drop from. Not doing that today.

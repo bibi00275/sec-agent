@@ -56,7 +56,47 @@ print(f"\nPath:    {path_count}/{len(results)}")
 print(f"Outcome: {outcome_count}/{len(results)}")
 print(f"Both:    {both_count}/{len(results)}")
 
+
+# Why this looks like this: the eval result needs to live as a file, not as
+# stdout that scrolls off. The filename includes git SHA so a result is always
+# tied to the code that produced it — untracked prompts and untracked code are
+# the same problem. If you're not in a git repo, fall back to a timestamp.
+
+import subprocess, datetime, pathlib
+
+def run_id() -> str:
+    try:
+        sha = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"]).decode().strip()
+    except Exception:
+        sha = "nogit"
+    ts = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    return f"{ts}-{sha}"                          # ← every eval run is identifiable forever
+
 # The interesting metric:
 divergent = [r["id"] for r in results if r["path_pass"] != r["outcome_pass"]]
+payload = {
+    "results": results,
+    "summary": {
+        "path": path_count,
+        "outcome": outcome_count,
+        "both": both_count,
+        "n": len(results)
+    },
+    "divergent": divergent,
+}
+out = pathlib.Path("evals/v1/runs") / f"trajectory-{run_id()}.json"
+out.parent.mkdir(parents=True, exist_ok=True)
+out.write_text(json.dumps(payload, indent=2))
+print(f"\nSaved: {out}")
 if divergent:
     print(f"\nDivergent (path-outcome disagreement): {divergent}")
+
+    # Construct path and ensure directory exists
+
+
+    # Prepare the data dictionary
+
+
+    # Write to file and confirm
+
+                      # ← the artifact you'll cite tomorrow

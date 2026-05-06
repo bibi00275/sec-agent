@@ -170,7 +170,6 @@ surfaced; tradeoff: spent a day on measurement instead of features, but
 every future change is now a real signal.
 
 
-
 Day 22: added "underspecified" intent to classifier (v2→v3); adv_03 flipped
 FAIL→PASS as targeted; tradeoff: discovered that qwen2.5:7b at temperature 0
 is non-deterministic on borderline classifications, so eval scores need
@@ -182,4 +181,19 @@ tradeoff: eval runs are now 5x slower (~N min) and I can no longer claim a singl
 Day 24: instrumented retrieval + answer hashing because Day 23 hypothesis needed mechanism evidence;
 tradeoff: refuted my own hypothesis and found the real bug was a missing temperature=0 on the answerer, not retrieval — fix deferred to Day 25 to keep the eval delta clean.
 
-Day 25: pinned temperature=0 on the answerer; flakiness collapsed from 3 cases to 0 with no regressions; tradeoff: none — single-line config fix that closed Day 23's hypothesis loop.
+Day 25: pinned temperature=0 on the answerer; flakiness collapsed from 3 cases to 0 with no regressions; 
+tradeoff: none — single-line config fix that closed Day 23's hypothesis loop.
+
+Day 26: added per-query JSONL traces; first run revealed a 260s answer-step latency I'd never have noticed without instrumentation; tradeoff: query-time disk write, one more thing in .gitignore.
+
+
+Day 27: replaced Day 25's vibes-baseline with a measured one — real median is 1.7s, not 10-15s, and cold start is 261s; tradeoff: a day spent measuring instead of building, but I now know the difference between a regression and a cold load.
+
+
+Day 28: full trajectory suite passed 7/7 path / 7/7 outcome over two
+deterministic runs, but 2 of 7 entries had vacuous expectations so
+the honest score is 5/5 real + 2 free; tradeoff: a tiny suite proves
+the harness works but can't catch regressions a real suite would —
+that's Week 5, not Day 28.
+
+
